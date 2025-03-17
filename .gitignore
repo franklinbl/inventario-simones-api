@@ -1,0 +1,18 @@
+.qodo
+
+# Ignorar dependencias
+node_modules/
+
+# Ignorar archivos compilados
+dist/
+
+# Ignorar variables de entorno
+.env
+
+# Ignorar archivos del sistema operativo
+.DS_Store
+Thumbs.db
+
+# Ignorar logs y datos temporales
+*.log
+*.tmp
