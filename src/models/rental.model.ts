@@ -1,5 +1,6 @@
-import { DataTypes, Model } from 'sequelize';
+import { DataTypes, Model, Optional } from 'sequelize';
 import sequelize from '../config/db.config';
+import Product from './product.model';
 
 interface RentalAttributes {
   id: number;
@@ -9,12 +10,16 @@ interface RentalAttributes {
   status: string;
 }
 
-class Rental extends Model<RentalAttributes> implements RentalAttributes {
+interface RentalCreationAttributes extends Optional<RentalAttributes, 'id'> {}
+
+class Rental extends Model<RentalAttributes, RentalCreationAttributes> implements RentalAttributes {
   public id!: number;
   public customer_name!: string;
   public start_date!: Date;
   public end_date!: Date;
   public status!: string;
+
+  public products?: Product[];
 }
 
 Rental.init(
