@@ -7,6 +7,7 @@ interface ProductAttributes {
   description: string;
   total_quantity: number;
   available_quantity: number;
+  price: number;
 }
 
 interface ProductCreationAttributes extends Optional<ProductAttributes, 'id'> {}
@@ -17,6 +18,7 @@ class Product extends Model<ProductAttributes, ProductCreationAttributes> implem
   public description!: string;
   public total_quantity!: number;
   public available_quantity!: number;
+  public price!: number;
 }
 
 Product.init(
@@ -43,6 +45,11 @@ Product.init(
       type: DataTypes.INTEGER,
       allowNull: false,
       defaultValue: 0,
+    },
+    price: {
+      type: DataTypes.DECIMAL(10, 2),
+      allowNull: false,
+      defaultValue: 0.00,
     },
   },
   {

@@ -6,19 +6,21 @@ import PDFDocument from 'pdfkit';
 // Crear un nuevo alquiler
 export const createRental: RequestHandler = async (req, res, next) => {
   try {
-    const { customer_name, start_date, end_date, products } = req.body;
+    const { client_name, start_date, end_date, client_phone, notes, products } = req.body;
 
     // Validar datos
-    if (!customer_name || !start_date || !end_date || !products || !Array.isArray(products)) {
+    if (!client_name || !start_date || !end_date || !products || !Array.isArray(products)) {
       res.status(400).json({ message: 'Datos incompletos o inválidos' });
       return;
     }
 
     // Crear el alquiler
     const rental = await Rental.create({
-      customer_name,
+      client_name,
       start_date: moment(start_date).toDate(),
       end_date: moment(end_date).toDate(),
+      client_phone,
+      notes,
       status: 'pending',
     });
 
@@ -148,7 +150,7 @@ export const updateRental: RequestHandler = async (req, res, next) => {
   try {
     const { id } = req.params;
     const rentalId = Number(id);
-    const { customer_name, start_date, end_date, products } = req.body;
+    const { client_phone, start_date, end_date, client_name, notes, products } = req.body;
 
     // Buscar el alquiler existente con sus productos
     const rental = await Rental.findByPk(rentalId, {
@@ -167,7 +169,9 @@ export const updateRental: RequestHandler = async (req, res, next) => {
     }
 
     // Actualizar datos básicos del alquiler
-    if (customer_name) rental.customer_name = customer_name;
+    if (client_name) rental.client_name = client_name;
+    if (client_phone) rental.client_phone = client_phone;
+    if (notes) rental.notes = notes;
     if (start_date) rental.start_date = moment(start_date).toDate();
     if (end_date) rental.end_date = moment(end_date).toDate();
 
@@ -295,7 +299,7 @@ export const generateRentalPDF: RequestHandler = async (req, res, next) => {
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader(
       'Content-Disposition',
-      `attachment; filename=alquiler-${rental.customer_name}-${moment(rental.start_date).format('DD-MM-YYYY')}.pdf`
+      `attachment; filename=alquiler-${rental.client_name}-${moment(rental.start_date).format('DD-MM-YYYY')}.pdf`
     );
 
     // Pipe el PDF directamente a la respuesta
@@ -307,7 +311,8 @@ export const generateRentalPDF: RequestHandler = async (req, res, next) => {
 
     // Información del cliente
     doc.fontSize(12).text('Información del Cliente:', { underline: true });
-    doc.fontSize(10).text(`Nombre: ${rental.customer_name}`);
+    doc.fontSize(10).text(`Nombre: ${rental.client_name}`);
+    doc.fontSize(10).text(`Teléfono: ${rental.client_phone}`);
     doc.text(`Fecha de inicio: ${moment(rental.start_date).format('DD/MM/YYYY')}`);
     doc.text(`Fecha de fin: ${moment(rental.end_date).format('DD/MM/YYYY')}`);
     doc.text(`Estado: ${rental.status}`);
@@ -344,11 +349,12 @@ export const generateRentalPDF: RequestHandler = async (req, res, next) => {
       for (const product of rental.products) {
         currentY = doc.y;
         const quantity = (product as any).RentalProduct.quantity;
-        const subtotal = quantity * 1;
+        const price = (product as any).price;
+        const subtotal = quantity * price;
 
         doc.text(product.name, startX, currentY);
         doc.text(quantity.toString(), startX + 200, currentY);
-        doc.text('1', startX + 300, currentY);
+        doc.text(price, startX + 300, currentY);
         doc.text(`$${subtotal.toFixed(2)}`, startX + 400, currentY);
         doc.moveDown();
 

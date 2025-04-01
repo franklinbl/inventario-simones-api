@@ -6,7 +6,7 @@ type AsyncHandler = (req: Request, res: Response, next: NextFunction) => Promise
 // Crear un nuevo producto
 export const createProduct: AsyncHandler = async (req, res, next) => {
   try {
-    const { name, description, total_quantity } = req.body;
+    const { name, description, total_quantity, price } = req.body;
 
     // Validar que se proporcionen los datos necesarios
     if (!name || !total_quantity) {
@@ -18,6 +18,7 @@ export const createProduct: AsyncHandler = async (req, res, next) => {
       name,
       description,
       total_quantity,
+      price,
       available_quantity: total_quantity, // La cantidad disponible es igual a la total al inicio
     });
 
@@ -33,6 +34,7 @@ export const getProducts: AsyncHandler = async (_req, res, next) => {
     const products = await Product.findAll();
     res.status(200).json(products);
   } catch (error) {
+    console.log(error);
     next(error);
   }
 };
@@ -58,7 +60,7 @@ export const getProductById: AsyncHandler = async (req, res, next) => {
 export const updateProduct: AsyncHandler = async (req, res, next) => {
   try {
     const { id } = req.params;
-    const { name, description, total_quantity, available_quantity } = req.body;
+    const { name, description, total_quantity, available_quantity, price } = req.body;
 
     // Buscar el producto por ID
     const product = await Product.findByPk(id);
@@ -71,6 +73,7 @@ export const updateProduct: AsyncHandler = async (req, res, next) => {
     product.description = description || product.description;
     product.total_quantity = total_quantity || product.total_quantity;
     product.available_quantity =  available_quantity || product.available_quantity;
+    product.price =  price || product.price;
 
     await product.save();
 
