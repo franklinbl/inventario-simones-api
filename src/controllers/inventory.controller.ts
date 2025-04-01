@@ -31,7 +31,7 @@ export const createProduct: AsyncHandler = async (req, res, next) => {
 export const getProducts: AsyncHandler = async (_req, res, next) => {
   try {
     const products = await Product.findAll();
-    res.status(200).json({ products });
+    res.status(200).json(products);
   } catch (error) {
     next(error);
   }
@@ -58,7 +58,7 @@ export const getProductById: AsyncHandler = async (req, res, next) => {
 export const updateProduct: AsyncHandler = async (req, res, next) => {
   try {
     const { id } = req.params;
-    const { name, description, total_quantity } = req.body;
+    const { name, description, total_quantity, available_quantity } = req.body;
 
     // Buscar el producto por ID
     const product = await Product.findByPk(id);
@@ -70,8 +70,7 @@ export const updateProduct: AsyncHandler = async (req, res, next) => {
     product.name = name || product.name;
     product.description = description || product.description;
     product.total_quantity = total_quantity || product.total_quantity;
-    product.available_quantity =
-      total_quantity !== undefined ? total_quantity - (product.total_quantity - product.available_quantity) : product.available_quantity;
+    product.available_quantity =  available_quantity || product.available_quantity;
 
     await product.save();
 

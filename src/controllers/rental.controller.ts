@@ -61,7 +61,7 @@ export const getRentals: RequestHandler = async (_req, res, next) => {
         },
       ],
     });
-    res.status(200).json({ rentals });
+    res.status(200).json(rentals);
   } catch (error) {
     next(error);
   }
