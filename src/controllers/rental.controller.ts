@@ -1,6 +1,7 @@
 import { RequestHandler } from 'express';
 import { Rental, Product, RentalProduct } from '../models';
 import moment from 'moment';
+import PDFDocument from 'pdfkit';
 
 // Crear un nuevo alquiler
 export const createRental: RequestHandler = async (req, res, next) => {
@@ -260,6 +261,113 @@ export const updateRental: RequestHandler = async (req, res, next) => {
       message: 'Alquiler actualizado exitosamente',
       rental: updatedRental,
     });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Generar PDF de un alquiler
+export const generateRentalPDF: RequestHandler = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const rentalId = Number(id);
+
+    // Buscar el alquiler con sus productos
+    const rental = await Rental.findByPk(rentalId, {
+      include: [
+        {
+          model: Product,
+          as: 'products',
+          through: { attributes: ['quantity'] },
+        },
+      ],
+    });
+
+    if (!rental) {
+      res.status(404).json({ message: 'Alquiler no encontrado' });
+      return;
+    }
+
+    // Crear el documento PDF
+    const doc = new PDFDocument();
+
+    // Configurar headers de respuesta
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename=alquiler-${rental.customer_name}-${moment(rental.start_date).format('DD-MM-YYYY')}.pdf`
+    );
+
+    // Pipe el PDF directamente a la respuesta
+    doc.pipe(res);
+
+    // Configurar el documento
+    doc.fontSize(20).text('Detalles del Alquiler', { align: 'center' });
+    doc.moveDown();
+
+    // Información del cliente
+    doc.fontSize(12).text('Información del Cliente:', { underline: true });
+    doc.fontSize(10).text(`Nombre: ${rental.customer_name}`);
+    doc.text(`Fecha de inicio: ${moment(rental.start_date).format('DD/MM/YYYY')}`);
+    doc.text(`Fecha de fin: ${moment(rental.end_date).format('DD/MM/YYYY')}`);
+    doc.text(`Estado: ${rental.status}`);
+    doc.moveDown();
+
+    // Tabla de productos
+    doc.fontSize(12).text('Productos Alquilados:', { underline: true });
+    doc.moveDown();
+
+    // Encabezados de la tabla
+    const startX = 50;
+    let currentY = doc.y;
+
+    doc.fontSize(10);
+    doc.text('Producto', startX, currentY);
+    doc.text('Cantidad', startX + 200, currentY);
+    doc.text('Precio Unitario', startX + 300, currentY);
+    doc.text('Subtotal', startX + 400, currentY);
+    doc.moveDown();
+
+    // Línea separadora
+    currentY = doc.y;
+    doc.moveTo(startX, currentY)
+       .lineTo(startX + 500, currentY)
+       .stroke();
+    doc.moveDown();
+
+    // Datos de productos
+    let total = 0;
+    if (!rental.products || rental.products.length === 0) {
+      doc.text('No hay productos en este alquiler', startX, doc.y);
+      doc.moveDown();
+    } else {
+      for (const product of rental.products) {
+        currentY = doc.y;
+        const quantity = (product as any).RentalProduct.quantity;
+        const subtotal = quantity * 1;
+
+        doc.text(product.name, startX, currentY);
+        doc.text(quantity.toString(), startX + 200, currentY);
+        doc.text('1', startX + 300, currentY);
+        doc.text(`$${subtotal.toFixed(2)}`, startX + 400, currentY);
+        doc.moveDown();
+
+        total += subtotal;
+      }
+    }
+
+    // Línea separadora final
+    currentY = doc.y;
+    doc.moveTo(startX, currentY)
+       .lineTo(startX + 500, currentY)
+       .stroke();
+    doc.moveDown();
+
+    // Total
+    doc.fontSize(12).text(`Total: $${total.toFixed(2)}`, startX + 300, doc.y);
+
+    // Finalizar el PDF
+    doc.end();
   } catch (error) {
     next(error);
   }

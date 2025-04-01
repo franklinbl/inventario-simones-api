@@ -8,7 +8,9 @@ import rentalRoutes from './routes/rental.routes';
 const app = express();
 
 // Middlewares
-app.use(cors()); // Habilita CORS
+app.use(cors({
+  exposedHeaders: ['Content-Disposition']
+})); // Habilita CORS
 app.use(express.json()); // Parsea JSON en las solicitudes
 
 // Rutas
