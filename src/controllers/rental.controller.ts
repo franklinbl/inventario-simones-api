@@ -46,7 +46,18 @@ export const createRental: RequestHandler = async (req, res, next) => {
       await product.save();
     }
 
-    res.status(201).json({ message: 'Alquiler creado exitosamente', rental });
+    // Obtener el alquiler con sus productos asociados
+    const rentalWithProducts = await Rental.findByPk(rental.id, {
+      include: [
+        {
+          model: Product,
+          as: 'products',
+          through: { attributes: ['quantity'] },
+        },
+      ],
+    });
+
+    res.status(201).json({ message: 'Alquiler creado exitosamente', rental: rentalWithProducts });
   } catch (error) {
     next(error); // Manejar errores globalmente
   }
