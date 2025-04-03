@@ -29,10 +29,49 @@ export const createProduct: AsyncHandler = async (req, res, next) => {
 };
 
 // Obtener todos los productos
-export const getProducts: AsyncHandler = async (_req, res, next) => {
+export const getProducts: AsyncHandler = async (req, res, next) => {
   try {
-    const products = await Product.findAll();
-    res.status(200).json(products);
+    const page = parseInt(req.query.page as string) || 1;
+    const limit = req.query.limit ? parseInt(req.query.limit as string) : undefined;
+
+    if (limit) {
+      const offset = (page - 1) * limit;
+      const { count, rows: products } = await Product.findAndCountAll({
+        limit,
+        offset,
+        order: [['createdAt', 'DESC']]
+      });
+
+      const totalPages = Math.ceil(count / limit);
+
+      res.status(200).json({
+        products,
+        pagination: {
+          total: count,
+          totalPages,
+          currentPage: page,
+          limit,
+          hasNextPage: page < totalPages,
+          hasPreviousPage: page > 1
+        }
+      });
+    } else {
+      const products = await Product.findAll({
+        order: [['createdAt', 'DESC']]
+      });
+
+      res.status(200).json({
+        products,
+        pagination: {
+          total: products.length,
+          totalPages: 1,
+          currentPage: 1,
+          limit: products.length,
+          hasNextPage: false,
+          hasPreviousPage: false
+        }
+      });
+    }
   } catch (error) {
     console.log(error);
     next(error);
