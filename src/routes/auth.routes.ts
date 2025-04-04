@@ -1,10 +1,15 @@
-import express from 'express';
-import { login, register } from '../controllers/auth.controller';
+import { Router } from 'express';
+import { login, register, getRoles, getUsers } from '../controllers/auth.controller';
+import { authenticateToken, checkRole } from '../middleware/auth.middleware';
 
-const router = express.Router();
+const router = Router();
 
-// Rutas de autenticación
-router.post('/register', register);
+// Rutas públicas
 router.post('/login', login);
+router.get('/roles', getRoles);
+
+// Rutas protegidas
+router.post('/register', authenticateToken, checkRole(['Administrador']), register);
+router.get('/users', authenticateToken, checkRole(['Administrador']), getUsers);
 
 export default router;
