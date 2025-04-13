@@ -6,14 +6,15 @@ import {
   updateProduct,
   deleteProduct,
 } from '../controllers/inventory.controller';
+import { authenticateToken, checkRole } from '../middleware/auth.middleware';
 
 const router = express.Router();
 
 // Rutas para el inventario
-router.post('/products', createProduct); // Crear un nuevo producto
+router.post('/products', authenticateToken, checkRole(['Administrador']), createProduct); // Crear un nuevo producto
 router.get('/products', getProducts); // Obtener todos los productos
 router.get('/products/:id', getProductById); // Obtener un producto por ID
-router.put('/products/:id', updateProduct); // Actualizar un producto
-router.delete('/products/:id', deleteProduct); // Eliminar un producto
+router.put('/products/:id', authenticateToken, checkRole(['Administrador']),  updateProduct); // Actualizar un producto
+router.delete('/products/:id', authenticateToken, checkRole(['Administrador']),  deleteProduct); // Eliminar un producto)
 
 export default router;

@@ -7,15 +7,16 @@ import {
   updateRental,
   generateRentalPDF,
 } from '../controllers/rental.controller';
+import { authenticateToken, checkRole } from '../middleware/auth.middleware';
 
 const router = Router();
 
 // Rutas para alquileres
-router.post('/', createRental); // Crear un nuevo alquiler
+router.post('/', authenticateToken, checkRole(['Administrador']),  createRental); // Crear un nuevo alquiler
 router.get('/', getRentals); // Obtener todos los alquileres
 router.get('/:id', getRentalById); // Obtener un alquiler por ID
-router.put('/:id', updateRental); // Completar un alquiler
-router.put('/:id/complete', completeRental); // Completar un alquiler
+router.put('/:id', authenticateToken, checkRole(['Administrador']),  updateRental); // Completar un alquiler
+router.put('/:id/complete', authenticateToken, checkRole(['Administrador']),  completeRental); // Completar un alquiler
 router.get('/:id/invoice', generateRentalPDF);
 
 export default router;
