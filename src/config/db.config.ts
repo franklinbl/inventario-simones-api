@@ -20,6 +20,8 @@ let sequelize: Sequelize;
 
 const databaseUrl = process.env.DATABASE_URL;
 
+console.log(databaseUrl);
+
 if (databaseUrl) {
   sequelize = new Sequelize(databaseUrl, {
     dialect: 'postgres',
