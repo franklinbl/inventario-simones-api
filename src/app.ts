@@ -20,10 +20,12 @@ app.use('/api/inventory', inventoryRoutes);
 app.use('/api/rentals', rentalRoutes);
 
 // Inicializar el administrador
-initAdmin().then(() => {
-  console.log('Inicialización completada');
-}).catch(error => {
-  console.error('Error durante la inicialización:', error);
-});
+if (process.env.isProduction === 'false') {
+  initAdmin().then(() => {
+    console.log('Inicialización completada');
+  }).catch(error => {
+    console.error('Error durante la inicialización:', error);
+  });
+}
 
 export default app;

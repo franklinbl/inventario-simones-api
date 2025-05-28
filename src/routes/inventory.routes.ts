@@ -12,8 +12,8 @@ const router = express.Router();
 
 // Rutas para el inventario
 router.post('/products', authenticateToken, checkRole(['Administrador']), createProduct); // Crear un nuevo producto
-router.get('/products', getProducts); // Obtener todos los productos
-router.get('/products/:id', getProductById); // Obtener un producto por ID
+router.get('/products', authenticateToken, getProducts); // Obtener todos los productos
+router.get('/products/:id', authenticateToken, getProductById); // Obtener un producto por ID
 router.put('/products/:id', authenticateToken, checkRole(['Administrador']),  updateProduct); // Actualizar un producto
 router.delete('/products/:id', authenticateToken, checkRole(['Administrador']),  deleteProduct); // Eliminar un producto)
 

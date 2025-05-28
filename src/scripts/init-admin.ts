@@ -45,7 +45,7 @@ const initAdmin = async () => {
       console.log('Creando usuario administrador...');
       const hashedPassword = await bcrypt.hash(process.env.ADMIN_PASSWORD, 10);
       await User.create({
-        name: process.env.ADMIN_NAME || 'Administrador',
+        name: process.env.ADMIN_NAME || 'Default',
         username: process.env.ADMIN_USERNAME,
         password: hashedPassword,
         roleId: 1 // ID del rol de administrador
