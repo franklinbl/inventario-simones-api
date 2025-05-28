@@ -70,7 +70,7 @@ export const login: RequestHandler = async (req, res, next) => {
     }
 
     // Generar token JWT
-    const token = jwt.sign({ id: user.id }, JWT_SECRET!, { expiresIn: '1h' });
+    const token = jwt.sign({ id: user.id }, JWT_SECRET!, { expiresIn: '8h' });
 
     res.json({
       token,

@@ -34,7 +34,7 @@ export const authenticateToken: RequestHandler = async (req: AuthRequest, res, n
     req.user = user;
     next();
   } catch (error) {
-    res.status(403).json({ message: 'Token inválido' });
+    res.status(403).json({ message: 'Token invalido' });
   }
 };
 
