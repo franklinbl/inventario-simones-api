@@ -74,6 +74,10 @@ export const getRentals: RequestHandler = async (_req, res, next) => {
           through: { attributes: ['quantity'] }, // Incluir la cantidad de cada producto en el alquiler
         },
       ],
+      order: [
+        ['status', 'DESC'],
+        ['end_date', 'ASC']
+      ]
     });
     res.status(200).json(rentals);
   } catch (error) {
