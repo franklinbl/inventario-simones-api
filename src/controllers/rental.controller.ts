@@ -6,10 +6,10 @@ import PDFDocument from 'pdfkit';
 // Crear un nuevo alquiler
 export const createRental: RequestHandler = async (req, res, next) => {
   try {
-    const { client_name, start_date, end_date, client_phone, notes, products } = req.body;
+    const { client_name, start_date, end_date, client_phone, notes, products, is_delivery_by_us, delivery_price } = req.body;
 
     // Validar datos
-    if (!client_name || !start_date || !end_date || !products || !Array.isArray(products)) {
+    if (!client_name || !start_date || !end_date || !products || !is_delivery_by_us || !delivery_price || !Array.isArray(products)) {
       res.status(400).json({ message: 'Datos incompletos o inválidos' });
       return;
     }
@@ -22,8 +22,8 @@ export const createRental: RequestHandler = async (req, res, next) => {
       client_phone,
       notes,
       status: 'pending',
-      is_delivery_by_us: false,
-      delivery_price: 0,
+      is_delivery_by_us,
+      delivery_price,
     });
 
     // Procesar los productos
@@ -167,7 +167,7 @@ export const updateRental: RequestHandler = async (req, res, next) => {
   try {
     const { id } = req.params;
     const rentalId = Number(id);
-    const { client_phone, start_date, end_date, client_name, notes, products } = req.body;
+    const { client_phone, start_date, end_date, client_name, notes, products, is_delivery_by_us, delivery_price } = req.body;
 
     // Buscar el alquiler existente con sus productos
     const rental = await Rental.findByPk(rentalId, {
@@ -191,6 +191,8 @@ export const updateRental: RequestHandler = async (req, res, next) => {
     if (notes) rental.notes = notes;
     if (start_date) rental.start_date = moment(start_date).toDate();
     if (end_date) rental.end_date = moment(end_date).toDate();
+    if (is_delivery_by_us) rental.is_delivery_by_us = is_delivery_by_us;
+    if (delivery_price) rental.delivery_price = delivery_price;
 
     // Procesar cambios en productos si se proporcionan
     if (products && Array.isArray(products)) {
