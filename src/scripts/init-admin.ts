@@ -1,15 +1,13 @@
 import { User, Role } from '../models';
 import bcrypt from 'bcryptjs';
 import dotenv from 'dotenv';
-import sequelize from '../config/db.config';
 
 dotenv.config();
 
 const initAdmin = async () => {
   try {
-    // Sincronizar la base de datos
-    console.log('Sincronizando base de datos...');
-    await sequelize.sync({ force: false }); // force: false para no eliminar datos existentes
+    // No sincronizamos aquí, ya se hace en server.ts
+    console.log('Inicializando roles y administrador...');
 
     // Crear roles si no existen
     const roles = [
@@ -26,7 +24,6 @@ const initAdmin = async () => {
     for (const role of roles) {
       const existingRole = await Role.findOne({ where: { name: role.name } });
       if (!existingRole) {
-        console.log(`Creando rol de ${role.name}...`);
         await Role.create(role);
       }
     }
@@ -42,7 +39,6 @@ const initAdmin = async () => {
         throw new Error('ADMIN_USERNAME y ADMIN_PASSWORD deben estar definidos en el archivo .env');
       }
 
-      console.log('Creando usuario administrador...');
       const hashedPassword = await bcrypt.hash(process.env.ADMIN_PASSWORD, 10);
       await User.create({
         name: process.env.ADMIN_NAME || 'Default',
@@ -50,9 +46,6 @@ const initAdmin = async () => {
         password: hashedPassword,
         roleId: 1 // ID del rol de administrador
       });
-      console.log('Usuario administrador creado exitosamente');
-    } else {
-      console.log('El usuario administrador ya existe');
     }
   } catch (error) {
     console.error('Error al inicializar el administrador:', error);

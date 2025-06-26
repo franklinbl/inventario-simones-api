@@ -10,6 +10,8 @@ interface RentalAttributes {
   start_date: Date;
   end_date: Date;
   status: string;
+  is_delivery_by_us: boolean;
+  delivery_price: number;
 }
 
 interface RentalCreationAttributes extends Optional<RentalAttributes, 'id'> {}
@@ -22,6 +24,8 @@ class Rental extends Model<RentalAttributes, RentalCreationAttributes> implement
   public start_date!: Date;
   public end_date!: Date;
   public status!: string;
+  public is_delivery_by_us!: boolean;
+  public delivery_price!: number;
 
   public products?: Product[];
 }
@@ -56,6 +60,16 @@ Rental.init(
     status: {
       type: DataTypes.STRING,
       defaultValue: 'pending',
+    },
+    is_delivery_by_us: {
+      type: DataTypes.BOOLEAN,
+      allowNull: false,
+      defaultValue: false,
+    },
+    delivery_price: {
+      type: DataTypes.DECIMAL(10, 2),
+      allowNull: true,
+      defaultValue: 0,
     },
   },
   {

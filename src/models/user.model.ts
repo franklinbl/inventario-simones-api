@@ -1,6 +1,5 @@
 import { DataTypes, Model, Optional } from 'sequelize';
 import sequelize from '../config/db.config';
-import { Role } from './role.model';
 
 // Interfaz para los atributos del modelo
 interface UserAttributes {
@@ -23,7 +22,7 @@ export class User extends Model<UserAttributes, UserCreationAttributes> implemen
   public roleId!: number;
   public readonly createdAt!: Date;
   public readonly updatedAt!: Date;
-  public role?: Role;
+  public role?: any; // Cambiamos a any para evitar importación circular
 }
 
 User.init(
@@ -50,7 +49,7 @@ User.init(
       type: DataTypes.INTEGER,
       allowNull: false,
       references: {
-        model: Role,
+        model: 'roles', // Usamos string en lugar de importación directa
         key: 'id',
       },
     },
@@ -62,8 +61,6 @@ User.init(
   }
 );
 
-// Definir la relación entre User y Role
-User.belongsTo(Role, { as: 'role', foreignKey: 'roleId' });
-Role.hasMany(User, { as: 'users', foreignKey: 'roleId' });
+// Las relaciones se definen en models/index.ts para evitar dependencias circulares
 
 export default User;

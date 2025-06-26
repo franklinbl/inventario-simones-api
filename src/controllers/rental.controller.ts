@@ -22,6 +22,8 @@ export const createRental: RequestHandler = async (req, res, next) => {
       client_phone,
       notes,
       status: 'pending',
+      is_delivery_by_us: false,
+      delivery_price: 0,
     });
 
     // Procesar los productos

@@ -4,8 +4,12 @@ import RentalProduct from './rental-product.model';
 import { User } from './user.model';
 import { Role } from './role.model';
 
-// Relaciones
+// Relaciones entre Product y Rental
 Product.belongsToMany(Rental, { through: RentalProduct, foreignKey: 'product_id', as: 'rentals' });
 Rental.belongsToMany(Product, { through: RentalProduct, foreignKey: 'rental_id', as: 'products' });
+
+// Relaciones entre User y Role
+User.belongsTo(Role, { as: 'role', foreignKey: 'roleId' });
+Role.hasMany(User, { as: 'users', foreignKey: 'roleId' });
 
 export { Product, Rental, RentalProduct, User, Role };
