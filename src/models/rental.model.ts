@@ -12,6 +12,7 @@ interface RentalAttributes {
   status: string;
   is_delivery_by_us: boolean;
   delivery_price: number;
+  created_by: number;
 }
 
 interface RentalCreationAttributes extends Optional<RentalAttributes, 'id'> {}
@@ -26,8 +27,10 @@ class Rental extends Model<RentalAttributes, RentalCreationAttributes> implement
   public status!: string;
   public is_delivery_by_us!: boolean;
   public delivery_price!: number;
+  public created_by!: number;
 
   public products?: Product[];
+  public creator?: any; // Para la relación con User
 }
 
 Rental.init(
@@ -70,6 +73,14 @@ Rental.init(
       type: DataTypes.DECIMAL(10, 2),
       allowNull: true,
       defaultValue: 0,
+    },
+    created_by: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+      references: {
+        model: 'users',
+        key: 'id',
+      },
     },
   },
   {

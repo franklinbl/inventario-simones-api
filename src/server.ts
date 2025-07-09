@@ -6,7 +6,7 @@ import initAdmin from './scripts/init-admin';
 // Sincronizar la base de datos y arrancar el servidor
 const PORT = process.env.PORT;
 
-sequelize.sync({ force: true }).then(async () => {
+sequelize.sync().then(async () => {
   console.log('Base de datos sincronizada');
 
   // Inicializar el administrador después de la sincronización

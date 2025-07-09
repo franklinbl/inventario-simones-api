@@ -12,4 +12,8 @@ Rental.belongsToMany(Product, { through: RentalProduct, foreignKey: 'rental_id',
 User.belongsTo(Role, { as: 'role', foreignKey: 'roleId' });
 Role.hasMany(User, { as: 'users', foreignKey: 'roleId' });
 
+// Relación entre Rental y User (quien creó la renta)
+Rental.belongsTo(User, { as: 'creator', foreignKey: 'created_by' });
+User.hasMany(Rental, { as: 'rentals', foreignKey: 'created_by' });
+
 export { Product, Rental, RentalProduct, User, Role };

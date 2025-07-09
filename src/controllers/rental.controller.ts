@@ -1,16 +1,27 @@
-import { RequestHandler } from 'express';
+import { RequestHandler, Request } from 'express';
 import { Rental, Product, RentalProduct } from '../models';
 import moment from 'moment';
 import PDFDocument from 'pdfkit';
 
+interface AuthRequest extends Request {
+  user?: any;
+}
+
 // Crear un nuevo alquiler
-export const createRental: RequestHandler = async (req, res, next) => {
+export const createRental: RequestHandler = async (req: AuthRequest, res, next) => {
   try {
     const { client_name, start_date, end_date, client_phone, notes, products, is_delivery_by_us, delivery_price } = req.body;
 
     // Validar datos
-    if (!client_name || !start_date || !end_date || !products || !is_delivery_by_us || !delivery_price || !Array.isArray(products)) {
+    if (!client_name || !start_date || !end_date || !products || !Array.isArray(products)) {
       res.status(400).json({ message: 'Datos incompletos o inválidos' });
+      return;
+    }
+
+    // Obtener el usuario autenticado
+    const userId = req.user?.id;
+    if (!userId) {
+      res.status(401).json({ message: 'Usuario no autenticado' });
       return;
     }
 
@@ -24,6 +35,7 @@ export const createRental: RequestHandler = async (req, res, next) => {
       status: 'pending',
       is_delivery_by_us,
       delivery_price,
+      created_by: userId,
     });
 
     // Procesar los productos
@@ -75,6 +87,11 @@ export const getRentals: RequestHandler = async (_req, res, next) => {
           as: 'products',
           through: { attributes: ['quantity'] }, // Incluir la cantidad de cada producto en el alquiler
         },
+        {
+          model: require('../models/user.model').User,
+          as: 'creator',
+          attributes: ['id', 'name', 'username'], // Solo incluir información básica del creador
+        },
       ],
       order: [
         ['status', 'DESC'],
@@ -97,6 +114,11 @@ export const getRentalById: RequestHandler = async (req, res, next) => {
           model: Product,
           as: 'products',
           through: { attributes: ['quantity'] }, // Incluir la cantidad de cada producto en el alquiler
+        },
+        {
+          model: require('../models/user.model').User,
+          as: 'creator',
+          attributes: ['id', 'name', 'username'], // Solo incluir información básica del creador
         },
       ],
     });
@@ -390,6 +412,20 @@ export const generateRentalPDF: RequestHandler = async (req, res, next) => {
 
     // Total
     doc.fontSize(12).text(`Total: $${total.toFixed(2)}`, startX + 300, doc.y);
+
+        // Información de entrega
+    if (rental.is_delivery_by_us && rental.delivery_price && Number(rental.delivery_price) > 0) {
+      const deliveryPrice = Number(rental.delivery_price);
+      doc.moveDown();
+      doc.fontSize(12).text('Información de Entrega:', { underline: true });
+      doc.fontSize(10).text(`Entrega a cargo de la empresa: Sí`);
+      doc.text(`Costo de flete: $${deliveryPrice.toFixed(2)}`);
+      doc.moveDown();
+
+      // Total con flete
+      const totalWithDelivery = total + deliveryPrice;
+      doc.fontSize(14).text(`Total con flete: $${totalWithDelivery.toFixed(2)}`, startX + 300, doc.y);
+    }
 
     // Finalizar el PDF
     doc.end();
