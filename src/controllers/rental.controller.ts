@@ -98,7 +98,17 @@ export const getRentals: RequestHandler = async (_req, res, next) => {
         ['end_date', 'ASC']
       ]
     });
-    res.status(200).json(rentals);
+
+    // Transformar los datos para incluir el nombre del creador en created_by
+    const rentalsWithCreatorName = rentals.map(rental => {
+      const rentalData = rental.toJSON() as Rental;
+      if (rentalData.creator) {
+        rentalData.created_by = rentalData.creator.name;
+      }
+      return rentalData;
+    });
+
+    res.status(200).json(rentalsWithCreatorName);
   } catch (error) {
     next(error);
   }
@@ -128,7 +138,13 @@ export const getRentalById: RequestHandler = async (req, res, next) => {
       return;
     }
 
-    res.status(200).json({ rental });
+    // Transformar los datos para incluir el nombre del creador en created_by
+    const rentalData = rental.toJSON() as Rental;
+    if (rentalData.creator) {
+      rentalData.created_by = rentalData.creator.name;
+    }
+
+    res.status(200).json({ rental: rentalData });
   } catch (error) {
     next(error);
   }
@@ -317,13 +333,18 @@ export const generateRentalPDF: RequestHandler = async (req, res, next) => {
     const { id } = req.params;
     const rentalId = Number(id);
 
-    // Buscar el alquiler con sus productos
+    // Buscar el alquiler con sus productos y creador
     const rental = await Rental.findByPk(rentalId, {
       include: [
         {
           model: Product,
           as: 'products',
           through: { attributes: ['quantity'] },
+        },
+        {
+          model: require('../models/user.model').User,
+          as: 'creator',
+          attributes: ['id', 'name', 'username'],
         },
       ],
     });
@@ -333,6 +354,12 @@ export const generateRentalPDF: RequestHandler = async (req, res, next) => {
       return;
     }
 
+    // Transformar los datos para incluir el nombre del creador
+    const rentalData = rental.toJSON() as any;
+    if (rentalData.creator) {
+      rentalData.created_by = rentalData.creator.name;
+    }
+
     // Crear el documento PDF
     const doc = new PDFDocument();
 
@@ -340,7 +367,7 @@ export const generateRentalPDF: RequestHandler = async (req, res, next) => {
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader(
       'Content-Disposition',
-      `attachment; filename=alquiler-${rental.client_name}-${moment(rental.start_date).format('DD-MM-YYYY')}.pdf`
+      `attachment; filename=alquiler-${rentalData.client_name}-${moment(rentalData.start_date).format('DD-MM-YYYY')}.pdf`
     );
 
     // Pipe el PDF directamente a la respuesta
@@ -352,11 +379,12 @@ export const generateRentalPDF: RequestHandler = async (req, res, next) => {
 
     // Información del cliente
     doc.fontSize(12).text('Información del Cliente:', { underline: true });
-    doc.fontSize(10).text(`Nombre: ${rental.client_name}`);
-    doc.fontSize(10).text(`Teléfono: ${rental.client_phone}`);
-    doc.text(`Fecha de inicio: ${moment(rental.start_date).format('DD/MM/YYYY')}`);
-    doc.text(`Fecha de fin: ${moment(rental.end_date).format('DD/MM/YYYY')}`);
-    doc.text(`Estado: ${rental.status}`);
+    doc.fontSize(10).text(`Nombre: ${rentalData.client_name}`);
+    doc.fontSize(10).text(`Teléfono: ${rentalData.client_phone}`);
+    doc.text(`Fecha de inicio: ${moment(rentalData.start_date).format('DD/MM/YYYY')}`);
+    doc.text(`Fecha de fin: ${moment(rentalData.end_date).format('DD/MM/YYYY')}`);
+    doc.text(`Estado: ${rentalData.status}`);
+    doc.text(`Creado por: ${rentalData.created_by}`);
     doc.moveDown();
 
     // Tabla de productos
@@ -383,11 +411,11 @@ export const generateRentalPDF: RequestHandler = async (req, res, next) => {
 
     // Datos de productos
     let total = 0;
-    if (!rental.products || rental.products.length === 0) {
+    if (!rentalData.products || rentalData.products.length === 0) {
       doc.text('No hay productos en este alquiler', startX, doc.y);
       doc.moveDown();
     } else {
-      for (const product of rental.products) {
+      for (const product of rentalData.products) {
         currentY = doc.y;
         const quantity = (product as any).RentalProduct.quantity;
         const price = (product as any).price;
@@ -414,8 +442,8 @@ export const generateRentalPDF: RequestHandler = async (req, res, next) => {
     doc.fontSize(12).text(`Total: $${total.toFixed(2)}`, startX + 300, doc.y);
 
         // Información de entrega
-    if (rental.is_delivery_by_us && rental.delivery_price && Number(rental.delivery_price) > 0) {
-      const deliveryPrice = Number(rental.delivery_price);
+    if (rentalData.is_delivery_by_us && rentalData.delivery_price && Number(rentalData.delivery_price) > 0) {
+      const deliveryPrice = Number(rentalData.delivery_price);
       doc.moveDown();
       doc.fontSize(12).text('Información de Entrega:', { underline: true });
       doc.fontSize(10).text(`Entrega a cargo de la empresa: Sí`);
