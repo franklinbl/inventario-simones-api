@@ -12,6 +12,7 @@ interface RentalAttributes {
   status: string;
   is_delivery_by_us: boolean;
   delivery_price: number;
+  discount: number;
   created_by: number;
 }
 
@@ -27,6 +28,7 @@ class Rental extends Model<RentalAttributes, RentalCreationAttributes> implement
   public status!: string;
   public is_delivery_by_us!: boolean;
   public delivery_price!: number;
+  public discount!: number;
   public created_by!: number;
 
   public products?: Product[];
@@ -70,6 +72,11 @@ Rental.init(
       defaultValue: false,
     },
     delivery_price: {
+      type: DataTypes.DECIMAL(10, 2),
+      allowNull: true,
+      defaultValue: 0,
+    },
+    discount: {
       type: DataTypes.DECIMAL(10, 2),
       allowNull: true,
       defaultValue: 0,

@@ -10,7 +10,7 @@ interface AuthRequest extends Request {
 // Crear un nuevo alquiler
 export const createRental: RequestHandler = async (req: AuthRequest, res, next) => {
   try {
-    const { client_name, start_date, end_date, client_phone, notes, products, is_delivery_by_us, delivery_price } = req.body;
+    const { client_name, start_date, end_date, client_phone, notes, products, is_delivery_by_us, delivery_price, discount } = req.body;
 
     // Validar datos
     if (!client_name || !start_date || !end_date || !products || !Array.isArray(products)) {
@@ -36,6 +36,7 @@ export const createRental: RequestHandler = async (req: AuthRequest, res, next) 
       is_delivery_by_us,
       delivery_price,
       created_by: userId,
+      discount,
     });
 
     // Procesar los productos
@@ -205,7 +206,7 @@ export const updateRental: RequestHandler = async (req, res, next) => {
   try {
     const { id } = req.params;
     const rentalId = Number(id);
-    const { client_phone, start_date, end_date, client_name, notes, products, is_delivery_by_us, delivery_price } = req.body;
+    const { client_phone, start_date, end_date, client_name, notes, products, is_delivery_by_us, delivery_price, discount } = req.body;
 
     // Buscar el alquiler existente con sus productos
     const rental = await Rental.findByPk(rentalId, {
@@ -231,6 +232,7 @@ export const updateRental: RequestHandler = async (req, res, next) => {
     if (end_date) rental.end_date = moment(end_date).toDate();
     if (is_delivery_by_us) rental.is_delivery_by_us = is_delivery_by_us;
     if (delivery_price) rental.delivery_price = delivery_price;
+    if (discount) rental.discount = discount;
 
     // Procesar cambios en productos si se proporcionan
     if (products && Array.isArray(products)) {
@@ -438,10 +440,25 @@ export const generateRentalPDF: RequestHandler = async (req, res, next) => {
        .stroke();
     doc.moveDown();
 
-    // Total
-    doc.fontSize(12).text(`Total: $${total.toFixed(2)}`, startX + 300, doc.y);
+    // Aplicar descuento si existe
+    let finalTotal = total;
+    if (rentalData.discount && Number(rentalData.discount) > 0) {
+      const discountPercentage = Number(rentalData.discount);
+      const discountAmount = total * (discountPercentage / 100);
+      finalTotal = total - discountAmount;
 
-        // Información de entrega
+      doc.moveDown();
+      doc.fontSize(12).text('Descuento:', { underline: true });
+      doc.fontSize(10).text(`Porcentaje de descuento: ${discountPercentage}%`);
+      doc.text(`Monto de descuento: $${discountAmount.toFixed(2)}`);
+      doc.text(`Subtotal con descuento: $${finalTotal.toFixed(2)}`);
+      doc.moveDown();
+    }
+
+    // Total sin flete
+    doc.fontSize(12).text(`Total: $${finalTotal.toFixed(2)}`, startX + 300, doc.y);
+
+    // Información de entrega
     if (rentalData.is_delivery_by_us && rentalData.delivery_price && Number(rentalData.delivery_price) > 0) {
       const deliveryPrice = Number(rentalData.delivery_price);
       doc.moveDown();
@@ -450,9 +467,9 @@ export const generateRentalPDF: RequestHandler = async (req, res, next) => {
       doc.text(`Costo de flete: $${deliveryPrice.toFixed(2)}`);
       doc.moveDown();
 
-      // Total con flete
-      const totalWithDelivery = total + deliveryPrice;
-      doc.fontSize(14).text(`Total con flete: $${totalWithDelivery.toFixed(2)}`, startX + 300, doc.y);
+      // Total final con flete
+      const totalWithDelivery = finalTotal + deliveryPrice;
+      doc.fontSize(14).text(`Total final: $${totalWithDelivery.toFixed(2)}`, startX + 300, doc.y);
     }
 
     // Finalizar el PDF
