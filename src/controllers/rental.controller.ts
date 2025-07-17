@@ -10,10 +10,10 @@ interface AuthRequest extends Request {
 // Crear un nuevo alquiler
 export const createRental: RequestHandler = async (req: AuthRequest, res, next) => {
   try {
-    const { client_name, start_date, end_date, client_phone, notes, products, is_delivery_by_us, delivery_price, discount } = req.body;
+    const { client_id, start_date, end_date, notes, products, is_delivery_by_us, delivery_price, discount } = req.body;
 
     // Validar datos
-    if (!client_name || !start_date || !end_date || !products || !Array.isArray(products)) {
+    if (!client_id || !start_date || !end_date || !products || !Array.isArray(products)) {
       res.status(400).json({ message: 'Datos incompletos o inválidos' });
       return;
     }
@@ -27,10 +27,9 @@ export const createRental: RequestHandler = async (req: AuthRequest, res, next) 
 
     // Crear el alquiler
     const rental = await Rental.create({
-      client_name,
+      client_id,
       start_date: moment(start_date).toDate(),
       end_date: moment(end_date).toDate(),
-      client_phone,
       notes,
       status: 'pending',
       is_delivery_by_us,
@@ -206,7 +205,7 @@ export const updateRental: RequestHandler = async (req, res, next) => {
   try {
     const { id } = req.params;
     const rentalId = Number(id);
-    const { client_phone, start_date, end_date, client_name, notes, products, is_delivery_by_us, delivery_price, discount } = req.body;
+    const { client_id, start_date, end_date, notes, products, is_delivery_by_us, delivery_price, discount } = req.body;
 
     // Buscar el alquiler existente con sus productos
     const rental = await Rental.findByPk(rentalId, {
@@ -225,8 +224,7 @@ export const updateRental: RequestHandler = async (req, res, next) => {
     }
 
     // Actualizar datos básicos del alquiler
-    if (client_name) rental.client_name = client_name;
-    if (client_phone) rental.client_phone = client_phone;
+    if (client_id) rental.client_id = client_id;
     if (notes) rental.notes = notes;
     if (start_date) rental.start_date = moment(start_date).toDate();
     if (end_date) rental.end_date = moment(end_date).toDate();

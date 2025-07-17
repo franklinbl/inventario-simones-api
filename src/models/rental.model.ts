@@ -1,11 +1,11 @@
 import { DataTypes, Model, Optional } from 'sequelize';
 import sequelize from '../config/db.config';
 import Product from './product.model';
+import Client from './client.model';
 
 interface RentalAttributes {
   id: number;
-  client_name: string;
-  client_phone: string;
+  client_id: number;
   notes: string;
   start_date: Date;
   end_date: Date;
@@ -20,8 +20,7 @@ interface RentalCreationAttributes extends Optional<RentalAttributes, 'id'> {}
 
 class Rental extends Model<RentalAttributes, RentalCreationAttributes> implements RentalAttributes {
   public id!: number;
-  public client_name!: string;
-  public client_phone!: string;
+  public client_id!: number;
   public notes!: string;
   public start_date!: Date;
   public end_date!: Date;
@@ -33,6 +32,7 @@ class Rental extends Model<RentalAttributes, RentalCreationAttributes> implement
 
   public products?: Product[];
   public creator?: any; // Para la relación con User
+  public client?: Client; // Relación con Client
 }
 
 Rental.init(
@@ -42,13 +42,13 @@ Rental.init(
       autoIncrement: true,
       primaryKey: true,
     },
-    client_name: {
-      type: DataTypes.STRING,
+    client_id: {
+      type: DataTypes.INTEGER,
       allowNull: false,
-    },
-    client_phone: {
-      type: DataTypes.STRING,
-      allowNull: true,
+      references: {
+        model: 'clients',
+        key: 'id',
+      },
     },
     notes: {
       type: DataTypes.TEXT,
