@@ -3,18 +3,18 @@ import sequelize from '../config/db.config';
 
 interface ClientAttributes {
   id: number;
-  client_name: string;
-  client_phone: string;
-  created_by: number;
+  dni: string;
+  name: string;
+  phone: string;
 }
 
 interface ClientCreationAttributes extends Optional<ClientAttributes, 'id'> {}
 
 class Client extends Model<ClientAttributes, ClientCreationAttributes> implements ClientAttributes {
   public id!: number;
-  public client_name!: string;
-  public client_phone!: string;
-  public created_by!: number;
+  public dni!: string;
+  public name!: string;
+  public phone!: string;
 }
 
 Client.init(
@@ -24,22 +24,18 @@ Client.init(
       autoIncrement: true,
       primaryKey: true,
     },
-    client_name: {
+    dni: {
       type: DataTypes.STRING,
       allowNull: false,
     },
-    client_phone: {
+    name: {
+      type: DataTypes.STRING,
+      allowNull: false,
+    },
+    phone: {
       type: DataTypes.STRING,
       allowNull: true,
-    },
-    created_by: {
-      type: DataTypes.INTEGER,
-      allowNull: false,
-      references: {
-        model: 'users',
-        key: 'id',
-      },
-    },
+    }
   },
   {
     sequelize,

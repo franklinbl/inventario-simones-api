@@ -2,6 +2,7 @@ import { RequestHandler, Request } from 'express';
 import { Rental, Product, RentalProduct } from '../models';
 import moment from 'moment';
 import PDFDocument from 'pdfkit';
+import Client from '../models/client.model';
 
 interface AuthRequest extends Request {
   user?: any;
@@ -10,10 +11,11 @@ interface AuthRequest extends Request {
 // Crear un nuevo alquiler
 export const createRental: RequestHandler = async (req: AuthRequest, res, next) => {
   try {
-    const { client_id, start_date, end_date, notes, products, is_delivery_by_us, delivery_price, discount } = req.body;
+    const { client_id, start_date, end_date, notes, products, is_delivery_by_us, delivery_price, discount } = req.body.rental;
+    const { name, phone, dni } = req.body.client;
 
     // Validar datos
-    if (!client_id || !start_date || !end_date || !products || !Array.isArray(products)) {
+    if (!start_date || !end_date || !products || !Array.isArray(products) || !name || !phone || !dni) {
       res.status(400).json({ message: 'Datos incompletos o inválidos' });
       return;
     }
@@ -25,9 +27,21 @@ export const createRental: RequestHandler = async (req: AuthRequest, res, next) 
       return;
     }
 
+    let client_id_to_use = null;
+    if (!client_id) {
+      const client = await Client.create({
+        name,
+        phone,
+        dni
+      });
+      client_id_to_use = client.id;
+    } else {
+      client_id_to_use = client_id;
+    }
+
     // Crear el alquiler
     const rental = await Rental.create({
-      client_id,
+      client_id: client_id_to_use,
       start_date: moment(start_date).toDate(),
       end_date: moment(end_date).toDate(),
       notes,
