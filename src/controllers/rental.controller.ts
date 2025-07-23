@@ -1,5 +1,5 @@
 import { RequestHandler, Request } from 'express';
-import { Rental, Product, RentalProduct } from '../models';
+import { Rental, Product, RentalProduct, User } from '../models';
 import moment from 'moment';
 import PDFDocument from 'pdfkit';
 import Client from '../models/client.model';
@@ -74,7 +74,7 @@ export const createRental: RequestHandler = async (req: AuthRequest, res, next) 
       await product.save();
     }
 
-    // Obtener el alquiler con sus productos asociados
+    // Obtener el alquiler con sus productos y cliente asociados
     const rentalWithProducts = await Rental.findByPk(rental.id, {
       include: [
         {
@@ -82,6 +82,16 @@ export const createRental: RequestHandler = async (req: AuthRequest, res, next) 
           as: 'products',
           through: { attributes: ['quantity'] },
         },
+        {
+          model: Client,
+          as: 'client',
+          attributes: ['id', 'dni', 'name', 'phone'],
+        },
+        {
+          model: User,
+          as: 'creator',
+          attributes: ['id', 'name', 'username'], // Solo incluir información básica del creador
+        }
       ],
     });
 
@@ -102,7 +112,7 @@ export const getRentals: RequestHandler = async (_req, res, next) => {
           through: { attributes: ['quantity'] }, // Incluir la cantidad de cada producto en el alquiler
         },
         {
-          model: require('../models/user.model').User,
+          model: User,
           as: 'creator',
           attributes: ['id', 'name', 'username'], // Solo incluir información básica del creador
         },
@@ -118,16 +128,7 @@ export const getRentals: RequestHandler = async (_req, res, next) => {
       ]
     });
 
-    // Transformar los datos para incluir el nombre del creador en created_by y los datos del cliente
-    const rentalsWithCreatorAndClient = rentals.map(rental => {
-      const rentalData = rental.toJSON() as Rental;
-      if (rentalData.creator) {
-        rentalData.created_by = rentalData.creator.name;
-      }
-      return rentalData;
-    });
-
-    res.status(200).json(rentalsWithCreatorAndClient);
+    res.status(200).json(rentals);
   } catch (error) {
     next(error);
   }
@@ -333,6 +334,16 @@ export const updateRental: RequestHandler = async (req, res, next) => {
           model: Product,
           as: 'products',
           through: { attributes: ['quantity'] },
+        },
+        {
+          model: User,
+          as: 'creator',
+          attributes: ['id', 'name', 'username'], // Solo incluir información básica del creador
+        },
+        {
+          model: Client,
+          as: 'client',
+          attributes: ['id', 'dni', 'name', 'phone'], // Incluir información básica del cliente
         },
       ],
     });
