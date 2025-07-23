@@ -106,6 +106,11 @@ export const getRentals: RequestHandler = async (_req, res, next) => {
           as: 'creator',
           attributes: ['id', 'name', 'username'], // Solo incluir información básica del creador
         },
+        {
+          model: Client,
+          as: 'client',
+          attributes: ['id', 'dni', 'name', 'phone'], // Incluir información básica del cliente
+        },
       ],
       order: [
         ['status', 'DESC'],
@@ -113,8 +118,8 @@ export const getRentals: RequestHandler = async (_req, res, next) => {
       ]
     });
 
-    // Transformar los datos para incluir el nombre del creador en created_by
-    const rentalsWithCreatorName = rentals.map(rental => {
+    // Transformar los datos para incluir el nombre del creador en created_by y los datos del cliente
+    const rentalsWithCreatorAndClient = rentals.map(rental => {
       const rentalData = rental.toJSON() as Rental;
       if (rentalData.creator) {
         rentalData.created_by = rentalData.creator.name;
@@ -122,7 +127,7 @@ export const getRentals: RequestHandler = async (_req, res, next) => {
       return rentalData;
     });
 
-    res.status(200).json(rentalsWithCreatorName);
+    res.status(200).json(rentalsWithCreatorAndClient);
   } catch (error) {
     next(error);
   }
