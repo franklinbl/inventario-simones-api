@@ -251,11 +251,11 @@ export const updateRental: RequestHandler = async (req, res, next) => {
       return;
     }
 
-    // Se le asigna cliente a la renta
+    // Se le asigna cliente a la
     const client_id_to_use = await getOrCreateClientId({ client_id, name, phone, dni });
 
     // Actualizar datos básicos del alquiler
-    if (client_id) rental.client_id = client_id_to_use;
+    if (client_id_to_use) rental.client_id = client_id_to_use;
     if (notes) rental.notes = notes;
     if (start_date) rental.start_date = moment(start_date).toDate();
     if (end_date) rental.end_date = moment(end_date).toDate();
