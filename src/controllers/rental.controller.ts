@@ -8,6 +8,22 @@ interface AuthRequest extends Request {
   user?: any;
 }
 
+// Función auxiliar para obtener o crear un cliente por dni
+async function getOrCreateClientId({ client_id, name, phone, dni }: { client_id?: number, name: string, phone: string, dni: string }) {
+  if (!client_id) {
+    // Verificar si la cédula ya está registrada
+    let existingClient = await Client.findOne({ where: { dni } });
+    if (existingClient) {
+      return existingClient.id;
+    } else {
+      const client = await Client.create({ name, phone, dni });
+      return client.id;
+    }
+  } else {
+    return client_id;
+  }
+}
+
 // Crear un nuevo alquiler
 export const createRental: RequestHandler = async (req: AuthRequest, res, next) => {
   try {
@@ -27,17 +43,8 @@ export const createRental: RequestHandler = async (req: AuthRequest, res, next) 
       return;
     }
 
-    let client_id_to_use = null;
-    if (!client_id) {
-      const client = await Client.create({
-        name,
-        phone,
-        dni
-      });
-      client_id_to_use = client.id;
-    } else {
-      client_id_to_use = client_id;
-    }
+    // Sele asigna cliente a la renta
+    const client_id_to_use = await getOrCreateClientId({ client_id, name, phone, dni });
 
     // Crear el alquiler
     const rental = await Rental.create({
@@ -225,7 +232,8 @@ export const updateRental: RequestHandler = async (req, res, next) => {
   try {
     const { id } = req.params;
     const rentalId = Number(id);
-    const { client_id, start_date, end_date, notes, products, is_delivery_by_us, delivery_price, discount } = req.body;
+    const { client_id, start_date, end_date, notes, products, is_delivery_by_us, delivery_price, discount } = req.body.rental;
+    const { name, phone, dni } = req.body.client;
 
     // Buscar el alquiler existente con sus productos
     const rental = await Rental.findByPk(rentalId, {
@@ -243,8 +251,11 @@ export const updateRental: RequestHandler = async (req, res, next) => {
       return;
     }
 
+    // Se le asigna cliente a la renta
+    const client_id_to_use = await getOrCreateClientId({ client_id, name, phone, dni });
+
     // Actualizar datos básicos del alquiler
-    if (client_id) rental.client_id = client_id;
+    if (client_id) rental.client_id = client_id_to_use;
     if (notes) rental.notes = notes;
     if (start_date) rental.start_date = moment(start_date).toDate();
     if (end_date) rental.end_date = moment(end_date).toDate();
