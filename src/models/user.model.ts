@@ -7,7 +7,7 @@ interface UserAttributes {
   name: string;
   username: string; // Cambiamos username por username
   password: string;
-  roleId: number;
+  role_id: number;
 }
 
 // Interfaz para los atributos opcionales al crear un usuario
@@ -19,7 +19,7 @@ export class User extends Model<UserAttributes, UserCreationAttributes> implemen
   public name!: string;
   public username!: string; // Cambiamos username por username
   public password!: string;
-  public roleId!: number;
+  public role_id!: number;
   public readonly createdAt!: Date;
   public readonly updatedAt!: Date;
   public role?: any; // Cambiamos a any para evitar importación circular
@@ -45,7 +45,7 @@ User.init(
       type: DataTypes.STRING,
       allowNull: false,
     },
-    roleId: {
+    role_id: {
       type: DataTypes.INTEGER,
       allowNull: false,
       references: {

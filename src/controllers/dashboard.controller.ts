@@ -8,7 +8,7 @@ export const infoDashboard: RequestHandler = async (_req, res, next) => {
   try {
     // 1. Contar alquileres pendientes
     const pendingRentals = await Rental.count({
-      where: { status: 'pending' }
+      where: { status: 'pending_return' }
     });
 
     // 2. Contar eventos del mes actual

@@ -13,10 +13,10 @@ const router = Router();
 
 // Rutas para alquileres
 router.post('/', authenticateToken, checkRole(['Administrador']),  createRental); // Crear un nuevo alquiler
+router.post('/complete-rental', authenticateToken, checkRole(['Administrador']),  completeRental); // Completar un alquiler
 router.get('/', getRentals); // Obtener todos los alquileres
 router.get('/:id', getRentalById); // Obtener un alquiler por ID
 router.put('/:id', authenticateToken, checkRole(['Administrador']),  updateRental); // Actualizar un alquiler
-router.put('/:id/complete', authenticateToken, checkRole(['Administrador']),  completeRental); // Completar un alquiler
 router.get('/:id/invoice', generateRentalPDF);
 
 export default router;

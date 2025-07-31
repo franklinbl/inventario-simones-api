@@ -7,7 +7,7 @@ import { JWT_SECRET } from '../config/db.config';
 // Registrar un nuevo usuario (solo administradores)
 export const register: RequestHandler = async (req, res, next): Promise<void> => {
   try {
-    const { name, username, password, roleId } = req.body;
+    const { name, username, password, role_id } = req.body;
 
     // Verificar si el usuario ya existe
     const existingUser = await User.findOne({ where: { username } });
@@ -17,7 +17,7 @@ export const register: RequestHandler = async (req, res, next): Promise<void> =>
     }
 
     // Verificar si el rol existe
-    const role = await Role.findByPk(roleId);
+    const role = await Role.findByPk(role_id);
     if (!role) {
       res.status(400).json({ message: 'Rol no válido' });
       return;
@@ -31,7 +31,7 @@ export const register: RequestHandler = async (req, res, next): Promise<void> =>
       name,
       username,
       password: hashedPassword,
-      roleId,
+      role_id,
     });
 
     // Obtener el usuario con su rol

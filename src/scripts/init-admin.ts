@@ -44,7 +44,7 @@ const initAdmin = async () => {
         name: process.env.ADMIN_NAME || 'Default',
         username: process.env.ADMIN_USERNAME,
         password: hashedPassword,
-        roleId: 1 // ID del rol de administrador
+        role_id: 1 // ID del rol de administrador
       });
     }
   } catch (error) {

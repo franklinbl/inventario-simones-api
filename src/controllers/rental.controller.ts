@@ -3,9 +3,18 @@ import { Rental, Product, RentalProduct, User } from '../models';
 import moment from 'moment';
 import PDFDocument from 'pdfkit';
 import Client from '../models/client.model';
+import { Transaction } from 'sequelize';
+import sequelize from '../config/db.config';
 
 interface AuthRequest extends Request {
   user?: any;
+}
+
+export interface ProductWithRental extends Product {
+  rental_product: {
+    quantity_rented: number;
+    quantity_returned: number;
+  };
 }
 
 // Función auxiliar para obtener o crear un cliente por dni
@@ -27,7 +36,7 @@ async function getOrCreateClientId({ client_id, name, phone, dni }: { client_id?
 // Crear un nuevo alquiler
 export const createRental: RequestHandler = async (req: AuthRequest, res, next) => {
   try {
-    const { client_id, start_date, end_date, notes, products, is_delivery_by_us, delivery_price, discount } = req.body.rental;
+    const { client_id, start_date, end_date, date_returned, notes, return_notes, products, is_delivery_by_us, delivery_price, discount } = req.body.rental;
     const { name, phone, dni } = req.body.client;
 
     // Validar datos
@@ -51,8 +60,10 @@ export const createRental: RequestHandler = async (req: AuthRequest, res, next) 
       client_id: client_id_to_use,
       start_date: moment(start_date).toDate(),
       end_date: moment(end_date).toDate(),
+      date_returned: moment(date_returned).toDate(),
       notes,
-      status: 'pending',
+      return_notes,
+      status: 'pending_return',
       is_delivery_by_us,
       delivery_price,
       created_by: userId,
@@ -61,11 +72,11 @@ export const createRental: RequestHandler = async (req: AuthRequest, res, next) 
 
     // Procesar los productos
     for (const item of products) {
-      const { product_id, quantity } = item;
+      const { product_id, quantity_rented, quantity_returned } = item;
 
       // Buscar el producto
       const product = await Product.findByPk(product_id);
-      if (!product || product.available_quantity < quantity) {
+      if (!product || product.available_quantity < quantity_rented) {
         throw new Error(`No hay suficiente stock para el producto con ID ${product_id}`);
       }
 
@@ -73,11 +84,12 @@ export const createRental: RequestHandler = async (req: AuthRequest, res, next) 
       await RentalProduct.create({
         rental_id: rental.id,
         product_id,
-        quantity,
+        quantity_rented,
+        quantity_returned,
       });
 
       // Actualizar el inventario
-      product.available_quantity -= quantity;
+      product.available_quantity -= quantity_rented;
       await product.save();
     }
 
@@ -87,7 +99,7 @@ export const createRental: RequestHandler = async (req: AuthRequest, res, next) 
         {
           model: Product,
           as: 'products',
-          through: { attributes: ['quantity'] },
+          through: { attributes: ['quantity_rented', 'quantity_returned'], as: 'rental_product' },
         },
         {
           model: Client,
@@ -116,7 +128,7 @@ export const getRentals: RequestHandler = async (_req, res, next) => {
         {
           model: Product,
           as: 'products',
-          through: { attributes: ['quantity'] }, // Incluir la cantidad de cada producto en el alquiler
+          through: { attributes: ['quantity_rented', 'quantity_returned'], as: 'rental_product' }, // Incluir la cantidad de cada producto en el alquiler
         },
         {
           model: User,
@@ -137,6 +149,7 @@ export const getRentals: RequestHandler = async (_req, res, next) => {
 
     res.status(200).json(rentals);
   } catch (error) {
+    console.error('Error al obtener alquileres:', error);
     next(error);
   }
 };
@@ -150,10 +163,10 @@ export const getRentalById: RequestHandler = async (req, res, next) => {
         {
           model: Product,
           as: 'products',
-          through: { attributes: ['quantity'] }, // Incluir la cantidad de cada producto en el alquiler
+          through: { attributes: ['quantity_rented', 'quantity_returned'], as: 'rental_product' }, // Incluir la cantidad de cada producto en el alquiler
         },
         {
-          model: require('../models/user.model').User,
+          model: User,
           as: 'creator',
           attributes: ['id', 'name', 'username'], // Solo incluir información básica del creador
         },
@@ -179,50 +192,139 @@ export const getRentalById: RequestHandler = async (req, res, next) => {
 
 // Completar un alquiler (devolver productos)
 export const completeRental: RequestHandler = async (req, res, next) => {
-  try {
-    const { id } = req.params;
+  let transaction: Transaction | undefined;
 
-    // Buscar el alquiler e incluir los productos asociados
+  try {
+    const { id, date_returned, return_notes, products: productsDto, status } = req.body;
+
+    // Validación inicial
+    if (!id || !status || !Array.isArray(productsDto)) {
+      res.status(400).json({
+        message: 'Faltan datos requeridos: id, status o products',
+      });
+      return;
+    }
+
+    if (!['completed', 'with_issues'].includes(status)) {
+      res.status(400).json({
+        message: 'El campo "status" debe ser "completed" o "with_issues"',
+      });
+      return;
+    }
+
+    transaction = await sequelize.transaction();
+
+    // Cargar la renta con todas las relaciones necesarias
     const rental = await Rental.findByPk(id, {
       include: [
         {
           model: Product,
           as: 'products',
-          through: { attributes: ['quantity'] }, // Incluir la cantidad de cada producto en el alquiler
+          through: {
+            attributes: ['quantity_rented', 'quantity_returned'], as: 'rental_product',
+          },
+        },
+        {
+          model: Client,
+          as: 'client',
+        },
+        {
+          model: User,
+          as: 'creator',
         },
       ],
+      transaction,
     });
 
     if (!rental) {
+      await transaction.rollback();
       res.status(404).json({ message: 'Alquiler no encontrado' });
       return;
     }
 
-    // Verificar si hay productos asociados
     if (!rental.products || rental.products.length === 0) {
+      await transaction.rollback();
       res.status(400).json({ message: 'No hay productos asociados al alquiler' });
       return;
     }
 
-    // Devolver los productos al inventario
-    for (const product of rental.products) {
+    // Procesar cada producto
+    for (const dto of productsDto) {
+      const product = rental.products.find(p => p.id === dto.product_id) as ProductWithRental;
+      if (!product) {
+        await transaction.rollback();
+        res.status(400).json({
+          message: `El producto con ID ${dto.product_id} no pertenece a esta renta.`,
+        });
+        return;
+      }
+
       const rentalProduct = await RentalProduct.findOne({
-        where: { rental_id: rental.id, product_id: product.id },
+        where: { rental_id: id, product_id: dto.product_id },
+        transaction,
+        lock: true,
       });
 
-      if (rentalProduct) {
-        // Actualizar la cantidad disponible del producto
-        product.available_quantity += rentalProduct.quantity;
-        await product.save();
+      if (!rentalProduct) {
+        await transaction.rollback();
+        res.status(400).json({
+          message: `Relación producto-renta no encontrada para producto ${dto.product_id}`,
+        });
+        return;
+      }
+
+      const { quantity_rented, quantity_returned: previousReturned } = rentalProduct;
+      const { quantity_returned } = dto;
+
+      if (quantity_returned > quantity_rented) {
+        await transaction.rollback();
+        res.status(400).json({
+          message: `No se pueden devolver ${quantity_returned} unidades de "${product.name}". Solo se alquilaron ${quantity_rented}.`,
+        });
+        return;
+      }
+
+      // Calcular diferencia neta
+      const diff = quantity_returned - previousReturned;
+
+      if (diff !== 0) {
+        product.available_quantity += diff;
+        await product.save({ transaction });
+      }
+
+      // Actualizar en la relación
+      rentalProduct.quantity_returned = quantity_returned;
+      await rentalProduct.save({ transaction });
+
+      const rentalProductInMemory = product.rental_product;
+      if (rentalProductInMemory) {
+        rentalProductInMemory.quantity_returned = quantity_returned;
       }
     }
 
-    // Marcar el alquiler como completado
-    rental.status = 'completed';
-    await rental.save();
+    // Actualizar estado de la renta
+    rental.date_returned = date_returned || new Date();
+    rental.return_notes = return_notes;
+    rental.status = status === 'completed' ? 'pending_return' : 'with_issues';
 
-    res.status(200).json({ message: 'Alquiler completado exitosamente', rental });
+    await rental.save({ transaction });
+
+    // Confirmar transacción
+    await transaction.commit();
+
+    // Devolver el objeto ya cargado y actualizado (sin consulta extra)
+    const rentalResponse = rental.toJSON(); // Asegura un objeto plano con todas las relaciones
+
+    res.status(200).json({
+      message: 'Alquiler completado y productos devueltos al inventario',
+      rental: rentalResponse,
+    });
+
   } catch (error) {
+    console.log(error);
+    if (transaction) {
+      await transaction.rollback();
+    }
     next(error);
   }
 };
@@ -232,7 +334,7 @@ export const updateRental: RequestHandler = async (req, res, next) => {
   try {
     const { id } = req.params;
     const rentalId = Number(id);
-    const { client_id, start_date, end_date, notes, products, is_delivery_by_us, delivery_price, discount } = req.body.rental;
+    const { client_id, start_date, end_date, date_returned, notes, return_notes, products, is_delivery_by_us, delivery_price, discount } = req.body.rental;
     const { name, phone, dni } = req.body.client;
 
     // Buscar el alquiler existente con sus productos
@@ -241,7 +343,7 @@ export const updateRental: RequestHandler = async (req, res, next) => {
         {
           model: Product,
           as: 'products',
-          through: { attributes: ['quantity'] },
+          through: { attributes: ['quantity_rented', 'quantity_returned'], as: 'rental_product' },
         },
       ],
     });
@@ -257,8 +359,10 @@ export const updateRental: RequestHandler = async (req, res, next) => {
     // Actualizar datos básicos del alquiler
     if (client_id_to_use) rental.client_id = client_id_to_use;
     if (notes) rental.notes = notes;
+    if (return_notes) rental.return_notes = return_notes;
     if (start_date) rental.start_date = moment(start_date).toDate();
     if (end_date) rental.end_date = moment(end_date).toDate();
+    if (date_returned) rental.end_date = moment(date_returned).toDate();
     if (is_delivery_by_us) rental.is_delivery_by_us = is_delivery_by_us;
     if (delivery_price) rental.delivery_price = delivery_price;
     if (discount) rental.discount = discount;
@@ -272,12 +376,12 @@ export const updateRental: RequestHandler = async (req, res, next) => {
 
       // Crear un mapa de productos actuales para fácil acceso
       const currentProductMap = new Map(
-        currentProducts.map(cp => [cp.product_id, cp.quantity])
+        currentProducts.map(cp => [cp.product_id, cp.quantity_rented])
       );
 
       // Procesar cada producto en la actualización
       for (const item of products) {
-        const { product_id, quantity } = item;
+        const { product_id, quantity_rented, quantity_returned } = item;
         const product = await Product.findByPk(product_id);
 
         if (!product) {
@@ -285,7 +389,7 @@ export const updateRental: RequestHandler = async (req, res, next) => {
         }
 
         const currentQuantity = currentProductMap.get(product_id) || 0;
-        const quantityDifference = quantity - currentQuantity;
+        const quantityDifference = quantity_rented - currentQuantity;
 
         // Verificar si hay suficiente stock disponible
         if (quantityDifference > 0 && product.available_quantity < quantityDifference) {
@@ -296,7 +400,7 @@ export const updateRental: RequestHandler = async (req, res, next) => {
         if (currentQuantity > 0) {
           // Actualizar cantidad existente
           await RentalProduct.update(
-            { quantity },
+            { quantity_rented },
             { where: { rental_id: rentalId, product_id } }
           );
         } else {
@@ -304,7 +408,8 @@ export const updateRental: RequestHandler = async (req, res, next) => {
           await RentalProduct.create({
             rental_id: rentalId,
             product_id,
-            quantity,
+            quantity_rented,
+            quantity_returned
           });
         }
 
@@ -323,7 +428,7 @@ export const updateRental: RequestHandler = async (req, res, next) => {
         const product = await Product.findByPk(productToRemove.product_id);
         if (product) {
           // Devolver la cantidad al inventario
-          product.available_quantity += productToRemove.quantity;
+          product.available_quantity += productToRemove.quantity_rented;
           await product.save();
         }
         await RentalProduct.destroy({
@@ -344,7 +449,7 @@ export const updateRental: RequestHandler = async (req, res, next) => {
         {
           model: Product,
           as: 'products',
-          through: { attributes: ['quantity'] },
+          through: { attributes: ['quantity_rented', 'quantity_returned'], as: 'rental_product' },
         },
         {
           model: User,
@@ -364,6 +469,7 @@ export const updateRental: RequestHandler = async (req, res, next) => {
       rental: updatedRental,
     });
   } catch (error) {
+    console.log(error);
     next(error);
   }
 };
@@ -380,10 +486,10 @@ export const generateRentalPDF: RequestHandler = async (req, res, next) => {
         {
           model: Product,
           as: 'products',
-          through: { attributes: ['quantity'] },
+          through: { attributes: ['quantity_rented', 'quantity_returned'], as: 'rental_product' },
         },
         {
-          model: require('../models/user.model').User,
+          model: User,
           as: 'creator',
           attributes: ['id', 'name', 'username'],
         },
@@ -458,7 +564,7 @@ export const generateRentalPDF: RequestHandler = async (req, res, next) => {
     } else {
       for (const product of rentalData.products) {
         currentY = doc.y;
-        const quantity = (product as any).RentalProduct.quantity;
+        const quantity = (product as any).rental_product.quantity_rented;
         const price = (product as any).price;
         const subtotal = quantity * price;
 

@@ -5,7 +5,8 @@ interface RentalProductAttributes {
   id: number;
   rental_id: number;
   product_id: number;
-  quantity: number;
+  quantity_rented: number;
+  quantity_returned: number;
 }
 
 interface RentalProductCreationAttributes extends Optional<RentalProductAttributes, 'id'> {}
@@ -14,7 +15,8 @@ class RentalProduct extends Model<RentalProductAttributes, RentalProductCreation
   public id!: number;
   public rental_id!: number;
   public product_id!: number;
-  public quantity!: number;
+  public quantity_rented!: number;
+  public quantity_returned!: number;
 }
 
 RentalProduct.init(
@@ -26,15 +28,19 @@ RentalProduct.init(
     },
     rental_id: {
       type: DataTypes.INTEGER,
-      primaryKey: true,
+      allowNull: false,
     },
     product_id: {
       type: DataTypes.INTEGER,
-      primaryKey: true,
+      allowNull: false,
     },
-    quantity: {
+    quantity_rented: {
       type: DataTypes.INTEGER,
       allowNull: false,
+    },
+    quantity_returned: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
     },
   },
   {

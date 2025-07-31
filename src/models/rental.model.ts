@@ -7,8 +7,10 @@ interface RentalAttributes {
   id: number;
   client_id: number;
   notes: string;
+  return_notes: string;
   start_date: Date;
   end_date: Date;
+  date_returned: Date;
   status: string;
   is_delivery_by_us: boolean;
   delivery_price: number;
@@ -22,8 +24,10 @@ class Rental extends Model<RentalAttributes, RentalCreationAttributes> implement
   public id!: number;
   public client_id!: number;
   public notes!: string;
+  public return_notes!: string;
   public start_date!: Date;
   public end_date!: Date;
+  public date_returned!: Date;
   public status!: string;
   public is_delivery_by_us!: boolean;
   public delivery_price!: number;
@@ -54,6 +58,10 @@ Rental.init(
       type: DataTypes.TEXT,
       allowNull: true,
     },
+    return_notes: {
+      type: DataTypes.TEXT,
+      allowNull: true,
+    },
     start_date: {
       type: DataTypes.DATE,
       allowNull: false,
@@ -62,9 +70,13 @@ Rental.init(
       type: DataTypes.DATE,
       allowNull: false,
     },
+    date_returned: {
+      type: DataTypes.DATE,
+      allowNull: true,
+    },
     status: {
-      type: DataTypes.STRING,
-      defaultValue: 'pending',
+      type: DataTypes.ENUM('completed', 'with_issues', 'pending_return'),
+      defaultValue: 'pending_return',
     },
     is_delivery_by_us: {
       type: DataTypes.BOOLEAN,
