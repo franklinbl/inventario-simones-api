@@ -3,6 +3,31 @@ import { RequestHandler } from 'express';
 import { Rental } from '../models';
 import { Sequelize, Op } from 'sequelize';
 
+// Crear cliente si no existe, si existe devuelve el cliente encontrado
+export const getOrCreateClientId = async ({client_id, name, phone, dni}: {client_id?: number; name: string; phone: string; dni: string;}): Promise<number> => {
+  try {
+    // Si ya se proporcionó un ID, devolverlo
+    if (client_id) {
+      return client_id;
+    }
+
+    // Buscar cliente por DNI
+    const existingClient = await Client.findOne({ where: { dni } });
+
+    if (existingClient) {
+      return existingClient.id;
+    }
+
+    // Crear nuevo cliente
+    const newClient = await Client.create({ name, phone, dni });
+    return newClient.id;
+
+  } catch (error) {
+    console.error('Error en getOrCreateClientId:', error);
+    throw error; // Que el controlador maneje el error con `next(error)`
+  }
+};
+
 // Obtener todos los clientes
 export const getClients: RequestHandler = async (_req, res, next) => {
   try {

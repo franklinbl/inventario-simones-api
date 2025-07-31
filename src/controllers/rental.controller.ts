@@ -5,6 +5,7 @@ import PDFDocument from 'pdfkit';
 import Client from '../models/client.model';
 import { Transaction } from 'sequelize';
 import sequelize from '../config/db.config';
+import { getOrCreateClientId } from './client.controller';
 
 interface AuthRequest extends Request {
   user?: any;
@@ -15,22 +16,6 @@ export interface ProductWithRental extends Product {
     quantity_rented: number;
     quantity_returned: number;
   };
-}
-
-// Función auxiliar para obtener o crear un cliente por dni
-async function getOrCreateClientId({ client_id, name, phone, dni }: { client_id?: number, name: string, phone: string, dni: string }) {
-  if (!client_id) {
-    // Verificar si la cédula ya está registrada
-    let existingClient = await Client.findOne({ where: { dni } });
-    if (existingClient) {
-      return existingClient.id;
-    } else {
-      const client = await Client.create({ name, phone, dni });
-      return client.id;
-    }
-  } else {
-    return client_id;
-  }
 }
 
 // Crear un nuevo alquiler
