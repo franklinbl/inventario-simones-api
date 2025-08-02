@@ -6,7 +6,7 @@ type AsyncHandler = (req: Request, res: Response, next: NextFunction) => Promise
 // Crear un nuevo producto
 export const createProduct: AsyncHandler = async (req, res, next) => {
   try {
-    const { name, description, total_quantity, price } = req.body;
+    const { code, name, description, total_quantity, price } = req.body;
 
     // Validar que se proporcionen los datos necesarios
     if (!name || !total_quantity) {
@@ -15,6 +15,7 @@ export const createProduct: AsyncHandler = async (req, res, next) => {
 
     // Crear el producto en la base de datos
     const newProduct = await Product.create({
+      code,
       name,
       description,
       total_quantity,
@@ -99,7 +100,7 @@ export const getProductById: AsyncHandler = async (req, res, next) => {
 export const updateProduct: AsyncHandler = async (req, res, next) => {
   try {
     const { id } = req.params;
-    const { name, description, total_quantity, available_quantity, price } = req.body;
+    const { code, name, description, total_quantity, available_quantity, price } = req.body;
 
     // Buscar el producto por ID
     const product = await Product.findByPk(id);
@@ -108,6 +109,7 @@ export const updateProduct: AsyncHandler = async (req, res, next) => {
     }
 
     // Actualizar los campos del producto
+    product.code = code || product.code;
     product.name = name || product.name;
     product.description = description || product.description;
     product.total_quantity = total_quantity || product.total_quantity;
