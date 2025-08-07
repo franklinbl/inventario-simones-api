@@ -12,6 +12,8 @@ Rental.belongsToMany(Product, { through: RentalProduct, foreignKey: 'rental_id',
 // Relación intermedia: RentalProduct → Rental y Product
 RentalProduct.belongsTo(Rental, { foreignKey: 'rental_id', as: 'rental' });
 RentalProduct.belongsTo(Product, { foreignKey: 'product_id', as: 'product' });
+Product.hasMany(RentalProduct, { foreignKey: 'product_id', as: 'rental_product' });
+Rental.hasMany(RentalProduct, { foreignKey: 'rental_id', as: 'rental_product' });
 
 // Relación User ⇄ Role
 User.belongsTo(Role, { as: 'role', foreignKey: 'role_id' });
