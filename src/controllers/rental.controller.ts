@@ -13,10 +13,22 @@ interface AuthRequest extends Request {
 }
 
 export interface ProductWithRental extends Product {
+  available_quantity: number;
   rental_product: {
     quantity_rented: number;
     quantity_returned: number;
   };
+}
+
+export interface RentalWithProducts extends Rental {
+  products: Array<Product & {
+    rental_product: {
+      quantity_rented: number;
+      quantity_returned: number;
+    };
+  }>;
+  client: Client;
+  creator: User;
 }
 
 // Crear un nuevo alquiler
@@ -147,17 +159,20 @@ export const getRentalById: RequestHandler = async (req, res, next) => {
         {
           model: Product,
           as: 'products',
-          through: { attributes: ['quantity_rented', 'quantity_returned'], as: 'rental_product' }, // Incluir la cantidad de cada producto en el alquiler
+          through: {
+            attributes: ['quantity_rented', 'quantity_returned'],
+            as: 'rental_product'
+          },
         },
         {
           model: User,
           as: 'creator',
-          attributes: ['id', 'name', 'username'], // Solo incluir información básica del creador
+          attributes: ['id', 'name', 'username'],
         },
         {
           model: Client,
           as: 'client',
-          attributes: ['id', 'dni', 'name', 'phone'], // Incluir información básica del cliente
+          attributes: ['id', 'dni', 'name', 'phone'],
         }
       ],
     });
@@ -167,10 +182,16 @@ export const getRentalById: RequestHandler = async (req, res, next) => {
       return;
     }
 
-    // Transformar los datos para incluir el nombre del creador en created_by
-    const rentalData = rental.toJSON() as Rental;
-    if (rentalData.creator) {
-      rentalData.created_by = rentalData.creator.name;
+    // Transformar los datos
+    const rentalData = rental.toJSON() as RentalWithProducts;
+    // Calcular available_quantity para cada producto
+    for (const product of rentalData.products as ProductWithRental[]) {
+      const available = await getProductAvailabilityInDateRange(
+        product.id,
+        rental.start_date,
+        rental.end_date
+      );
+      product.available_quantity = available;
     }
 
     res.status(200).json({ rental: rentalData });
