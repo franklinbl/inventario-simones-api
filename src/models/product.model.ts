@@ -7,7 +7,6 @@ interface ProductAttributes {
   name: string;
   description: string;
   total_quantity: number;
-  available_quantity: number;
   price: number;
 }
 
@@ -19,7 +18,6 @@ class Product extends Model<ProductAttributes, ProductCreationAttributes> implem
   public code!: string;
   public description!: string;
   public total_quantity!: number;
-  public available_quantity!: number;
   public price!: number;
 }
 
@@ -43,11 +41,6 @@ Product.init(
       allowNull: true,
     },
     total_quantity: {
-      type: DataTypes.INTEGER,
-      allowNull: false,
-      defaultValue: 0,
-    },
-    available_quantity: {
       type: DataTypes.INTEGER,
       allowNull: false,
       defaultValue: 0,

@@ -19,8 +19,7 @@ export const createProduct: AsyncHandler = async (req, res, next) => {
       name,
       description,
       total_quantity,
-      price,
-      available_quantity: total_quantity, // La cantidad disponible es igual a la total al inicio
+      price
     });
 
     res.status(201).json({ message: 'Producto creado exitosamente', product: newProduct });
@@ -100,7 +99,7 @@ export const getProductById: AsyncHandler = async (req, res, next) => {
 export const updateProduct: AsyncHandler = async (req, res, next) => {
   try {
     const { id } = req.params;
-    const { code, name, description, total_quantity, available_quantity, price } = req.body;
+    const { code, name, description, total_quantity, price } = req.body;
 
     // Buscar el producto por ID
     const product = await Product.findByPk(id);
@@ -113,7 +112,6 @@ export const updateProduct: AsyncHandler = async (req, res, next) => {
     product.name = name || product.name;
     product.description = description || product.description;
     product.total_quantity = total_quantity || product.total_quantity;
-    product.available_quantity =  available_quantity || product.available_quantity;
     product.price =  price || product.price;
 
     await product.save();

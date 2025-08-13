@@ -1,4 +1,4 @@
-import { Rental, Product } from '../models';
+import { Rental } from '../models';
 import { RequestHandler } from 'express';
 import moment from 'moment';
 import { Op } from 'sequelize';
@@ -23,19 +23,9 @@ export const infoDashboard: RequestHandler = async (_req, res, next) => {
       }
     });
 
-    // 3. Contar productos con stock bajo
-    const lowStockProducts = await Product.count({
-      where: {
-        available_quantity: {
-          [Op.lt]: 15
-        }
-      }
-    });
-
     res.status(200).json({
       pendingRentals,
-      monthlyEvents,
-      lowStockProducts
+      monthlyEvents
     });
   } catch (error) {
     next(error);

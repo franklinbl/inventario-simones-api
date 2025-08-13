@@ -6,6 +6,7 @@ import Client from '../models/client.model';
 import { Op, Transaction, fn, col, literal } from 'sequelize';
 import sequelize from '../config/db.config';
 import { getOrCreateClientId } from './client.controller';
+import { getProductAvailabilityInDateRange } from '../helpers/availability.helper';
 
 interface AuthRequest extends Request {
   user?: any;
@@ -61,7 +62,7 @@ export const createRental: RequestHandler = async (req: AuthRequest, res, next) 
 
       // Buscar el producto
       const product = await Product.findByPk(product_id);
-      if (!product || product.available_quantity < quantity_rented) {
+      if (!product) {
         throw new Error(`No hay suficiente stock para el producto con ID ${product_id}`);
       }
 
@@ -73,8 +74,6 @@ export const createRental: RequestHandler = async (req: AuthRequest, res, next) 
         quantity_returned,
       });
 
-      // Actualizar el inventario
-      product.available_quantity -= quantity_rented;
       await product.save();
     }
 
@@ -155,6 +154,11 @@ export const getRentalById: RequestHandler = async (req, res, next) => {
           as: 'creator',
           attributes: ['id', 'name', 'username'], // Solo incluir información básica del creador
         },
+        {
+          model: Client,
+          as: 'client',
+          attributes: ['id', 'dni', 'name', 'phone'], // Incluir información básica del cliente
+        }
       ],
     });
 
@@ -273,7 +277,6 @@ export const completeRental: RequestHandler = async (req, res, next) => {
       const diff = quantity_returned - previousReturned;
 
       if (diff !== 0) {
-        product.available_quantity += diff;
         await product.save({ transaction });
       }
 
@@ -376,20 +379,27 @@ export const updateRental: RequestHandler = async (req, res, next) => {
         const currentQuantity = currentProductMap.get(product_id) || 0;
         const quantityDifference = quantity_rented - currentQuantity;
 
-        // Verificar si hay suficiente stock disponible
-        if (quantityDifference > 0 && product.available_quantity < quantityDifference) {
-          throw new Error(`No hay suficiente stock disponible para el producto ${product.name}`);
+        // ✅ Validación con disponibilidad dinámica
+        const availableInDates = await getProductAvailabilityInDateRange(
+          product_id,
+          rental.start_date,
+          rental.end_date
+        );
+
+        const currentQuantityInRental = currentProductMap.get(product_id) || 0;
+        const netNewQuantity = Math.max(0, quantity_rented - currentQuantityInRental);
+
+        if (netNewQuantity > availableInDates) {
+          throw new Error(`No hay suficiente stock disponible para el producto ${product.name} entre ${rental.start_date} y ${rental.end_date}.`);
         }
 
-        // Actualizar la cantidad en RentalProduct
+        // Actualizar o crear la relación
         if (currentQuantity > 0) {
-          // Actualizar cantidad existente
           await RentalProduct.update(
             { quantity_rented },
             { where: { rental_id: rentalId, product_id } }
           );
         } else {
-          // Crear nueva relación
           await RentalProduct.create({
             rental_id: rentalId,
             product_id,
@@ -397,10 +407,6 @@ export const updateRental: RequestHandler = async (req, res, next) => {
             quantity_returned
           });
         }
-
-        // Ajustar el inventario
-        product.available_quantity -= quantityDifference;
-        await product.save();
       }
 
       // Eliminar productos que ya no están en la lista
@@ -412,8 +418,6 @@ export const updateRental: RequestHandler = async (req, res, next) => {
       for (const productToRemove of productsToRemove) {
         const product = await Product.findByPk(productToRemove.product_id);
         if (product) {
-          // Devolver la cantidad al inventario
-          product.available_quantity += productToRemove.quantity_rented;
           await product.save();
         }
         await RentalProduct.destroy({
