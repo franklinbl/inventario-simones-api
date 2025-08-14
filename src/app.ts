@@ -5,6 +5,7 @@ import inventoryRoutes from './routes/inventory.routes';
 import rentalRoutes from './routes/rental.routes';
 import dashboardRoutes from './routes/dashboard.routes';
 import clientRoutes from './routes/client.routes';
+import { authenticateToken } from './middleware/auth.middleware';
 
 // Crear la aplicación Express
 const app = express();
@@ -16,10 +17,10 @@ app.use(cors({
 app.use(express.json()); // Parsea JSON en las solicitudes
 
 // Rutas
-app.use('/api/auth', authRoutes);
-app.use('/api/inventory', inventoryRoutes);
-app.use('/api/rental', rentalRoutes);
-app.use('/api/dashboard', dashboardRoutes);
-app.use('/api/client', clientRoutes);
+app.use('/api/auth', authenticateToken, authRoutes);
+app.use('/api/inventory', authenticateToken, inventoryRoutes);
+app.use('/api/rental', authenticateToken, rentalRoutes);
+app.use('/api/dashboard', authenticateToken, dashboardRoutes);
+app.use('/api/client', authenticateToken, clientRoutes);
 
 export default app;
