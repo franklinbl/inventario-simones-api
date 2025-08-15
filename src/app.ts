@@ -17,7 +17,7 @@ app.use(cors({
 app.use(express.json()); // Parsea JSON en las solicitudes
 
 // Rutas
-app.use('/api/auth', authenticateToken, authRoutes);
+app.use('/api/auth', authRoutes);
 app.use('/api/inventory', authenticateToken, inventoryRoutes);
 app.use('/api/rental', authenticateToken, rentalRoutes);
 app.use('/api/dashboard', authenticateToken, dashboardRoutes);
