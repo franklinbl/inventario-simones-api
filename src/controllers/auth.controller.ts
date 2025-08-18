@@ -3,6 +3,7 @@ import jwt from 'jsonwebtoken';
 import { User, Role } from '../models';
 import { Request, Response, NextFunction, RequestHandler } from 'express';
 import { JWT_SECRET } from '../config/db.config';
+import { getPagination } from '../helpers/pagination';
 
 // Registrar un nuevo usuario (solo administradores)
 export const register: RequestHandler = async (req, res, next): Promise<void> => {
@@ -99,12 +100,33 @@ export const getRoles: RequestHandler = async (_req, res, next) => {
 // Obtener todos los usuarios (solo administradores)
 export const getUsers: RequestHandler = async (req, res, next) => {
   try {
-    const users = await User.findAll({
+    // 1. Obtener datos de paginación desde el query
+    const { page, limit, offset } = getPagination(req.query);
+
+    // 2. Obtener usuarios con paginación
+    const { count, rows: users } = await User.findAndCountAll({
       include: ['role'],
-      attributes: { exclude: ['password'] } // Excluir la contraseña de la respuesta
+      attributes: { exclude: ['password'] },
+      limit,
+      offset,
+      order: [['createdAt', 'DESC']],
     });
 
-    res.status(200).json(users);
+    // 3. Calcular datos de paginación
+    const totalPages = Math.ceil(count / limit);
+
+    res.status(200).json({
+      message: 'Usuarios obtenidos exitosamente',
+      users,
+      pagination: {
+        total: count,
+        totalPages,
+        currentPage: page,
+        limit,
+        hasNextPage: page < totalPages,
+        hasPreviousPage: page > 1,
+      },
+    });
   } catch (error) {
     next(error);
   }

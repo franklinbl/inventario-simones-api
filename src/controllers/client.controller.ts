@@ -2,6 +2,7 @@ import Client from '../models/client.model';
 import { RequestHandler } from 'express';
 import { Rental } from '../models';
 import { Sequelize, Op } from 'sequelize';
+import { getPagination } from '../helpers/pagination';
 
 // Crear cliente si no existe, si existe devuelve el cliente encontrado
 export const getOrCreateClientId = async ({client_id, name, phone, dni}: {client_id?: number; name: string; phone: string; dni: string;}): Promise<number> => {
@@ -29,8 +30,15 @@ export const getOrCreateClientId = async ({client_id, name, phone, dni}: {client
 };
 
 // Obtener todos los clientes
-export const getClients: RequestHandler = async (_req, res, next) => {
+export const getClients: RequestHandler = async (req, res, next) => {
   try {
+    // 1. Obtener datos de paginación desde el query
+    const { page, limit, offset } = getPagination(req.query);
+
+    // 2. Contar total de clientes (sin paginación)
+    const total = await Client.count();
+
+    // 3. Obtener clientes paginados con rentalCount
     const clients = await Client.findAll({
       attributes: {
         include: [
@@ -41,12 +49,31 @@ export const getClients: RequestHandler = async (_req, res, next) => {
         {
           model: Rental,
           as: 'rentals',
-          attributes: [], // No traemos los datos de las rentas, solo contamos
+          attributes: [],
         }
       ],
-      group: ['Client.id']
+      group: ['Client.id'],
+      limit,
+      offset,
+      subQuery: false // importante para evitar errores con `group`
     });
-    res.status(200).json(clients);
+
+    // 4. Armar respuesta paginada
+    const totalPages = Math.ceil(total / limit);
+
+    res.status(200).json({
+      message: 'Clientes obtenidos exitosamente',
+      clients,
+      pagination: {
+        total,
+        totalPages,
+        currentPage: page,
+        limit,
+        hasNextPage: page < totalPages,
+        hasPreviousPage: page > 1,
+      }
+    });
+
   } catch (error) {
     next(error);
   }
