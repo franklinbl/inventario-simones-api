@@ -5,9 +5,9 @@ import {
   getProductById,
   updateProduct,
   deleteProduct,
+  getAvailableProducts,
 } from '../controllers/inventory.controller';
 import { checkRole } from '../middleware/auth.middleware';
-import { getAvailableProducts } from '../controllers/rental.controller';
 
 const router = express.Router();
 

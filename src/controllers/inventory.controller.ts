@@ -1,7 +1,19 @@
 import { Request, Response, NextFunction } from 'express';
 import Product from '../models/product.model';
+import { col, fn, literal, Op } from 'sequelize';
+import { Rental, RentalProduct } from '../models';
+import { parseAndValidateDateRange } from '../helpers/date-range';
+import { getPagination } from '../helpers/pagination';
 
 type AsyncHandler = (req: Request, res: Response, next: NextFunction) => Promise<any>;
+
+interface AvailableProductsQuery {
+  start_date?: string;
+  end_date?: string;
+  term?: string;
+  page?: string;
+  limit?: string;
+}
 
 // Crear un nuevo producto
 export const createProduct: AsyncHandler = async (req, res, next) => {
@@ -74,6 +86,100 @@ export const getProducts: AsyncHandler = async (req, res, next) => {
     }
   } catch (error) {
     console.log(error);
+    next(error);
+  }
+};
+
+export const getAvailableProducts: AsyncHandler = async (
+  req: Request<{}, any, any, AvailableProductsQuery>,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    // 1) Validación de fechas con helper
+    const { start_date, end_date, term } = req.query;
+    const range = parseAndValidateDateRange(start_date, end_date);
+    if (range.error) return res.status(400).json({ message: range.error });
+    const { start, end, startStr, endStr } = range.ok!;
+
+    // 2) Paginación (page/limit desde query)
+    const { page, limit, offset } = getPagination(req.query as Record<string, unknown>, {
+      page: 1, limit: 10, maxLimit: 100,
+    });
+
+    // 3) Filtro de búsqueda
+    const where: any = {};
+    if (term && term.trim()) {
+      where[Op.or] = [
+        { name: { [Op.iLike]: `%${term.trim()}%` } },
+        { code: { [Op.iLike]: `%${term.trim()}%` } },
+      ];
+    }
+
+    // 4) Consulta principal con disponibilidad y LEFT JOINs
+    const products = await Product.findAll({
+      where,
+      attributes: {
+        include: [
+          [
+            fn(
+              'GREATEST',
+              literal('"Product"."total_quantity" - COALESCE(SUM("rental_product"."quantity_rented"), 0)'),
+              0
+            ),
+            'available_quantity',
+          ],
+        ],
+      },
+      include: [
+        {
+          model: RentalProduct,
+          as: 'rental_product',
+          attributes: [],
+          required: false, // LEFT JOIN (no excluye productos sin rentas)
+          include: [
+            {
+              model: Rental,
+              as: 'rental',
+              attributes: [],
+              required: false, // LEFT JOIN
+              where: {
+                start_date: { [Op.lte]: end },
+                end_date: { [Op.gte]: start },
+                status: { [Op.in]: ['pending_return', 'completed', 'with_issues'] },
+              },
+            },
+          ],
+        },
+      ],
+      group: ['Product.id'],
+      order: [[col('name'), 'ASC']],
+      subQuery: false,
+      limit,
+      offset,
+    });
+
+    // 5) Conteo total (coincide con el "where" del producto)
+    //    Nota: como usamos LEFT JOIN, el count puede hacerse sin includes.
+    const total = await Product.count({ where });
+    const totalPages = Math.ceil(total / limit);
+
+    // 6) Respuesta
+    res.status(200).json({
+      message: 'Productos disponibles obtenidos exitosamente',
+      products,
+      pagination: {
+        total,
+        totalPages,
+        currentPage: page,
+        limit,
+        hasNextPage: page < totalPages,
+        hasPreviousPage: page > 1,
+      },
+      date_range: { start: startStr, end: endStr },
+    });
+  } catch (error) {
+    console.error('Error en getAvailableProducts:', error);
     next(error);
   }
 };
