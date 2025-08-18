@@ -3,7 +3,7 @@ import Product from '../models/product.model';
 import { col, fn, literal, Op } from 'sequelize';
 import { Rental, RentalProduct } from '../models';
 import { parseAndValidateDateRange } from '../helpers/date-range';
-import { getPagination } from '../helpers/pagination';
+import { getPagination, getPagingData } from '../helpers/pagination';
 
 type AsyncHandler = (req: Request, res: Response, next: NextFunction) => Promise<any>;
 
@@ -43,49 +43,23 @@ export const createProduct: AsyncHandler = async (req, res, next) => {
 // Obtener todos los productos
 export const getProducts: AsyncHandler = async (req, res, next) => {
   try {
-    const page = parseInt(req.query.page as string) || 1;
-    const limit = req.query.limit ? parseInt(req.query.limit as string) : undefined;
+    // 1. Obtener datos de paginación
+    const { page, limit, offset } = getPagination(req.query);
 
-    if (limit) {
-      const offset = (page - 1) * limit;
-      const { count, rows: products } = await Product.findAndCountAll({
-        limit,
-        offset,
-        order: [['createdAt', 'DESC']]
-      });
+    // 2. Hacer la consulta con Sequelize
+    const data = await Product.findAndCountAll({
+      limit,
+      offset,
+      order: [['createdAt', 'DESC']],
+    });
 
-      const totalPages = Math.ceil(count / limit);
+    // 3. Formatear la respuesta con el helper
+    const response = getPagingData(data, page, limit);
 
-      res.status(200).json({
-        products,
-        pagination: {
-          total: count,
-          totalPages,
-          currentPage: page,
-          limit,
-          hasNextPage: page < totalPages,
-          hasPreviousPage: page > 1
-        }
-      });
-    } else {
-      const products = await Product.findAll({
-        order: [['createdAt', 'DESC']]
-      });
+    res.status(200).json(response);
 
-      res.status(200).json({
-        products,
-        pagination: {
-          total: products.length,
-          totalPages: 1,
-          currentPage: 1,
-          limit: products.length,
-          hasNextPage: false,
-          hasPreviousPage: false
-        }
-      });
-    }
   } catch (error) {
-    console.log(error);
+    console.error(error);
     next(error);
   }
 };

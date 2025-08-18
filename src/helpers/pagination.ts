@@ -23,3 +23,24 @@ export function getPagination(
 
   return { page, limit, offset };
 }
+
+export function getPagingData<T>(
+  data: { count: number; rows: T[] },
+  page: number,
+  limit: number
+) {
+  const { count: total, rows } = data;
+  const totalPages = Math.ceil(total / limit);
+
+  return {
+    items: rows,
+    pagination: {
+      total,
+      totalPages,
+      currentPage: page,
+      limit,
+      hasNextPage: page < totalPages,
+      hasPreviousPage: page > 1,
+    },
+  };
+}
