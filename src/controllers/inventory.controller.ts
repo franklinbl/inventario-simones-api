@@ -50,7 +50,7 @@ export const getProducts: AsyncHandler = async (req, res, next) => {
     const data = await Product.findAndCountAll({
       limit,
       offset,
-      order: [['createdAt', 'DESC']],
+      order: [[col('name'), 'ASC']],
     });
 
     // 3. Formatear la respuesta con el helper

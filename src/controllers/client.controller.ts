@@ -1,7 +1,7 @@
 import Client from '../models/client.model';
 import { RequestHandler } from 'express';
 import { Rental } from '../models';
-import { Sequelize, Op } from 'sequelize';
+import { Sequelize, Op, col } from 'sequelize';
 import { getPagination } from '../helpers/pagination';
 
 // Crear cliente si no existe, si existe devuelve el cliente encontrado
@@ -52,6 +52,7 @@ export const getClients: RequestHandler = async (req, res, next) => {
           attributes: [],
         }
       ],
+      order: [[col('name'), 'ASC']],
       group: ['Client.id'],
       limit,
       offset,
