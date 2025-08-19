@@ -7,6 +7,7 @@ import { Op, Transaction, fn, col, literal } from 'sequelize';
 import sequelize from '../config/db.config';
 import { getOrCreateClientId } from './client.controller';
 import { getProductAvailabilityInDateRange } from '../helpers/availability.helper';
+import { getPagination } from '../helpers/pagination';
 
 interface AuthRequest extends Request {
   user?: any;
@@ -117,9 +118,13 @@ export const createRental: RequestHandler = async (req: AuthRequest, res, next) 
 };
 
 // Obtener todos los alquileres
-export const getRentals: RequestHandler = async (_req, res, next) => {
+export const getRentals: RequestHandler = async (req, res, next) => {
   try {
-    const rentals = await Rental.findAll({
+    // 1. Obtener datos de paginación desde el query
+    const { page, limit, offset } = getPagination(req.query);
+
+    // 2. Obtener usuarios con paginación
+    const { count, rows: rentals } = await Rental.findAndCountAll({
       include: [
         {
           model: Product,
@@ -140,12 +145,28 @@ export const getRentals: RequestHandler = async (_req, res, next) => {
       order: [
         ['status', 'DESC'],
         ['end_date', 'ASC']
-      ]
+      ],
+      limit,
+      offset,
     });
 
-    res.status(200).json(rentals);
+    // 3. Calcular datos de paginación
+    const totalPages = Math.ceil(count / limit);
+
+    res.status(200).json({
+      message: 'Rentas obtenidos exitosamente',
+      rentals,
+      pagination: {
+        total: count,
+        totalPages,
+        currentPage: page,
+        limit,
+        hasNextPage: page < totalPages,
+        hasPreviousPage: page > 1,
+      }
+    });
   } catch (error) {
-    console.error('Error al obtener alquileres:', error);
+    console.error('Error al obtener rentas:', error);
     next(error);
   }
 };
