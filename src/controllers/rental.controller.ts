@@ -125,6 +125,7 @@ export const getRentals: RequestHandler = async (req, res, next) => {
 
     // 2. Obtener usuarios con paginación
     const { count, rows: rentals } = await Rental.findAndCountAll({
+      distinct: true,
       include: [
         {
           model: Product,
