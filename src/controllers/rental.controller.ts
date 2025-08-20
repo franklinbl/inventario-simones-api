@@ -336,7 +336,7 @@ export const completeRental: RequestHandler = async (req, res, next) => {
     // Actualizar estado de la renta
     rental.date_returned = date_returned || new Date();
     rental.return_notes = return_notes;
-    rental.status = status === 'completed' ? 'pending_return' : 'with_issues';
+    rental.status = status;
 
     await rental.save({ transaction });
 
