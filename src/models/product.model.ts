@@ -1,5 +1,7 @@
-import { DataTypes, Model, Optional } from 'sequelize';
+import { DataTypes, FindOptions, literal, Model, Optional, ProjectionAlias } from 'sequelize';
 import sequelize from '../config/db.config';
+import RentalProduct from './rental-product.model';
+import Rental from './rental.model';
 
 interface ProductAttributes {
   id: number;
@@ -54,7 +56,49 @@ Product.init(
   {
     sequelize,
     tableName: 'products',
+    modelName: 'Product',
   }
+);
+
+Product.addScope(
+  'withAvailability',
+  (startDate: string, endDate: string, statuses: string[]): FindOptions => ({
+    attributes: {
+      include: [
+        [
+          literal(`
+            GREATEST(
+              "Product"."total_quantity"
+              - COALESCE(
+                  SUM(
+                    CASE
+                      WHEN "rental_product->rental"."start_date" <= :endDate::date
+                       AND "rental_product->rental"."end_date"   >= :startDate::date
+                       AND "rental_product->rental"."status" IN (:statuses)
+                      THEN "rental_product"."quantity_rented"
+                      ELSE 0
+                    END
+                  ), 0
+                ),
+              0
+            )
+          `),
+          'available_quantity',
+        ] as ProjectionAlias,
+      ],
+    },
+    include: [
+      {
+        model: RentalProduct,
+        as: 'rental_product',
+        attributes: [],
+        required: false,
+        include: [{ model: Rental, as: 'rental', attributes: [] }],
+      },
+    ],
+    group: ['Product.id'],
+    replacements: { startDate, endDate, statuses },
+  })
 );
 
 export default Product;

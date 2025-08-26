@@ -91,47 +91,18 @@ export const getAvailableProducts: AsyncHandler = async (
     }
 
     // 4) Consulta principal con disponibilidad y LEFT JOINs
-    const products = await Product.findAll({
+    const statuses = ['pending_return', 'with_issues'];
+    const products = await Product.scope({
+      method: ['withAvailability', startStr, endStr, statuses],
+    }).findAll({
       where,
-      attributes: {
-        include: [
-          [
-            fn(
-              'GREATEST',
-              literal('"Product"."total_quantity" - COALESCE(SUM("rental_product"."quantity_rented"), 0)'),
-              0
-            ),
-            'available_quantity',
-          ],
-        ],
-      },
-      include: [
-        {
-          model: RentalProduct,
-          as: 'rental_product',
-          attributes: [],
-          required: false, // LEFT JOIN (no excluye productos sin rentas)
-          include: [
-            {
-              model: Rental,
-              as: 'rental',
-              attributes: [],
-              required: false, // LEFT JOIN
-              where: {
-                start_date: { [Op.lte]: end },
-                end_date: { [Op.gte]: start },
-                status: { [Op.in]: ['pending_return', 'completed', 'with_issues'] },
-              },
-            },
-          ],
-        },
-      ],
-      group: ['Product.id'],
-      order: [[col('name'), 'ASC']],
-      subQuery: false,
+      order: [['name', 'ASC']],
       limit,
       offset,
+      subQuery: false,
+      logging: console.log,
     });
+
 
     // 5) Conteo total (coincide con el "where" del producto)
     //    Nota: como usamos LEFT JOIN, el count puede hacerse sin includes.
