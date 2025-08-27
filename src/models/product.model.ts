@@ -15,6 +15,8 @@ interface ProductAttributes {
 interface ProductCreationAttributes extends Optional<ProductAttributes, 'id'> {}
 
 class Product extends Model<ProductAttributes, ProductCreationAttributes> implements ProductAttributes {
+  static readonly AVAILABILITY_STATUSES = ['pending_return', 'with_issues'] as const;
+
   public id!: number;
   public name!: string;
   public code!: string;
@@ -60,9 +62,10 @@ Product.init(
   }
 );
 
+const statuses = Product.AVAILABILITY_STATUSES;
 Product.addScope(
   'withAvailability',
-  (startDate: string, endDate: string, statuses: string[]): FindOptions => ({
+  (startDate: string, endDate: string): FindOptions => ({
     attributes: {
       include: [
         [
@@ -74,8 +77,12 @@ Product.addScope(
                     CASE
                       WHEN "rental_product->rental"."start_date" <= :endDate::date
                        AND "rental_product->rental"."end_date"   >= :startDate::date
-                       AND "rental_product->rental"."status" IN (:statuses)
+                       AND "rental_product->rental"."status" = 'pending_return'
                       THEN "rental_product"."quantity_rented"
+                      WHEN "rental_product->rental"."start_date" <= :endDate::date
+                       AND "rental_product->rental"."end_date"   >= :startDate::date
+                       AND "rental_product->rental"."status" = 'with_issues'
+                      THEN "rental_product"."quantity_rented" - "rental_product"."quantity_returned"
                       ELSE 0
                     END
                   ), 0

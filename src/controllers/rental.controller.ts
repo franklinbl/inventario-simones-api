@@ -1,7 +1,7 @@
 import { RequestHandler, Request } from 'express';
 import { Rental, Product, RentalProduct, User } from '../models';
 import moment from 'moment';
-import PDFDocument from 'pdfkit';
+import PDFDocument, { end } from 'pdfkit';
 import Client from '../models/client.model';
 import { Op, Transaction, fn, col, literal } from 'sequelize';
 import sequelize from '../config/db.config';
@@ -29,6 +29,10 @@ export interface RentalWithProducts extends Rental {
   }>;
   client: Client;
   creator: User;
+}
+
+interface ProductWithAvailability extends Product {
+  available_quantity: number;
 }
 
 // Crear un nuevo alquiler
@@ -175,15 +179,15 @@ export const getRentals: RequestHandler = async (req, res, next) => {
 export const getRentalById: RequestHandler = async (req, res, next) => {
   try {
     const { id } = req.params;
-    const rental = await Rental.findByPk(id, {
+    const rentalId = Number(id);
+
+    // 1. Obtener la renta básica (sin disponibilidad)
+    const rental = await Rental.findByPk(rentalId, {
       include: [
         {
           model: Product,
           as: 'products',
-          through: {
-            attributes: ['quantity_rented', 'quantity_returned'],
-            as: 'rental_product'
-          },
+          through: { attributes: ['quantity_rented', 'quantity_returned'], as: 'rental_product' },
         },
         {
           model: User,
@@ -203,11 +207,36 @@ export const getRentalById: RequestHandler = async (req, res, next) => {
       return;
     }
 
-    // Transformar los datos
+    // 2. Extraer fechas y productos
+    const { start_date, end_date } = rental;
+    const productIds = rental.products?.map(p => p.id) || [];
+
+    // 3. Obtener productos con disponibilidad en el rango de la renta
+    const productsWithAvailability = await Product.scope({
+      method: ['withAvailability', start_date, end_date]
+    }).findAll({
+      where: { id: productIds },
+      subQuery: false,
+      raw: true
+    }) as unknown as ProductWithAvailability[];
+
+    // 4. Crear un mapa para fácil acceso
+    const availabilityMap = new Map(
+      productsWithAvailability.map(p => [p.id, p.available_quantity])
+    );
+
+    // 5. Transformar los productos de la renta para incluir `available_quantity`
     const rentalData = rental.toJSON() as RentalWithProducts;
 
+    rentalData.products = rentalData.products.map((product: any) => ({
+      ...product,
+      available_quantity: availabilityMap.get(product.id) || 0
+    }));
+
     res.status(200).json({ rental: rentalData });
+
   } catch (error) {
+    console.error('Error en getRentalById:', error);
     next(error);
   }
 };
@@ -391,21 +420,11 @@ export const updateRental: RequestHandler = async (req, res, next) => {
       const currentProductMap = new Map(currentProducts.map(cp => [cp.product_id, cp]));
 
       // Traer todos los productos de la actualización con disponibilidad
-      const statuses = ['pending_return', 'completed', 'with_issues'];
       const productIds = products.map(p => p.product_id);
       const availableProducts = await Product.scope({
-        method: ['withAvailability', rental.start_date, rental.end_date, statuses],
+        method: ['withAvailability', rental.start_date, rental.end_date],
       }).findAll({
-        where: { id: productIds },
-        include: [
-          {
-            model: RentalProduct,
-            as: 'rental_product',
-            attributes: ['quantity_rented', 'quantity_returned'],
-            where: { rental_id: rentalId },
-            required: false,
-          },
-        ],
+        where: { id: productIds }
       });
 
       // Validar y actualizar productos
@@ -465,6 +484,7 @@ export const updateRental: RequestHandler = async (req, res, next) => {
     });
 
   } catch (error) {
+    console.log(error);
     next(error);
   }
 };
