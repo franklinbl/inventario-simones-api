@@ -111,7 +111,6 @@ export const getAvailableProducts: AsyncHandler = async (
       limit,
       offset,
       subQuery: false,
-      logging: console.log,
     });
 
 
