@@ -6,13 +6,15 @@ import {
   updateProduct,
   deleteProduct,
   getAvailableProducts,
-} from '../controllers/inventory.controller';
+  recalculateProductAvailability,
+} from '../controllers/product.controller';
 import { checkRole } from '../middleware/auth.middleware';
 
 const router = express.Router();
 
 // Rutas para el inventario
 router.post('/products', checkRole(['Administrador']), createProduct); // Crear un nuevo producto
+router.post('/products/recalculateAvailability', recalculateProductAvailability); // Buscar recalcular disponibilidad de una lista d eproductos
 router.get('/products', getProducts); // Obtener todos los productos
 router.get('/products/available', getAvailableProducts); // Buscar productos con su disponibilidad
 router.get('/products/:id', getProductById); // Obtener un producto por ID

@@ -70,24 +70,26 @@ Product.addScope(
       include: [
         [
           literal(`
-            GREATEST(
-              "Product"."total_quantity"
-              - COALESCE(
-                  SUM(
-                    CASE
-                      WHEN "rental_product->rental"."start_date" <= :endDate::date
-                       AND "rental_product->rental"."end_date"   >= :startDate::date
-                       AND "rental_product->rental"."status" = 'pending_return'
-                      THEN "rental_product"."quantity_rented"
-                      WHEN "rental_product->rental"."start_date" <= :endDate::date
-                       AND "rental_product->rental"."end_date"   >= :startDate::date
-                       AND "rental_product->rental"."status" = 'with_issues'
-                      THEN "rental_product"."quantity_rented" - "rental_product"."quantity_returned"
-                      ELSE 0
-                    END
-                  ), 0
-                ),
-              0
+            CAST(
+              GREATEST(
+                "Product"."total_quantity"
+                - COALESCE(
+                    SUM(
+                      CASE
+                        WHEN "rental_product->rental"."start_date" <= :endDate::date
+                        AND "rental_product->rental"."end_date"   >= :startDate::date
+                        AND "rental_product->rental"."status" = 'pending_return'
+                        THEN "rental_product"."quantity_rented"
+                        WHEN "rental_product->rental"."start_date" <= :endDate::date
+                        AND "rental_product->rental"."end_date"   >= :startDate::date
+                        AND "rental_product->rental"."status" = 'with_issues'
+                        THEN "rental_product"."quantity_rented" - "rental_product"."quantity_returned"
+                        ELSE 0
+                      END
+                    ), 0
+                  ),
+                0
+              ) AS INTEGER
             )
           `),
           'available_quantity',

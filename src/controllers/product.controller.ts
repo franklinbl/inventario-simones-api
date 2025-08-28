@@ -1,7 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import Product from '../models/product.model';
-import { col, fn, literal, Op } from 'sequelize';
-import { Rental, RentalProduct } from '../models';
+import { col, Op } from 'sequelize';
 import { parseAndValidateDateRange } from '../helpers/date-range';
 import { getPagination, getPagingData } from '../helpers/pagination';
 
@@ -13,6 +12,18 @@ interface AvailableProductsQuery {
   term?: string;
   page?: string;
   limit?: string;
+}
+
+export interface ProductWithRental extends Product {
+  available_quantity: number;
+  rental_product: {
+    quantity_rented: number;
+    quantity_returned: number;
+  };
+}
+
+export interface ProductWithAvailability extends Product {
+  available_quantity: number;
 }
 
 // Crear un nuevo producto
@@ -74,7 +85,7 @@ export const getAvailableProducts: AsyncHandler = async (
     const { start_date, end_date, term } = req.query;
     const range = parseAndValidateDateRange(start_date, end_date);
     if (range.error) return res.status(400).json({ message: range.error });
-    const { start, end, startStr, endStr } = range.ok!;
+    const { startStr, endStr } = range.ok!;
 
     // 2) Paginación (page/limit desde query)
     const { page, limit, offset } = getPagination(req.query as Record<string, unknown>, {
@@ -142,6 +153,79 @@ export const getProductById: AsyncHandler = async (req, res, next) => {
 
     res.status(200).json({ product });
   } catch (error) {
+    next(error);
+  }
+};
+
+// controllers/availability.controller.ts
+export const recalculateProductAvailability: AsyncHandler = async (req, res, next) => {
+  try {
+    const { start_date, end_date, products } = req.body;
+
+    // 1. Validación
+    if (!start_date || !end_date) {
+      res.status(400).json({
+        message: 'start_date y end_date son requeridos'
+      });
+      return;
+    }
+
+    if (!Array.isArray(products) || products.length === 0) {
+      res.status(400).json({
+        message: 'products es requerido y debe ser un array no vacío'
+      });
+      return;
+    }
+
+    // 2. Extraer solo los IDs para la consulta
+    const productIds = products.map(p => p.id);
+
+    // Validar que todos tengan `id`
+    if (productIds.some(id => !id)) {
+      return res.status(400).json({
+        message: 'Cada producto debe tener un id'
+      });
+    }
+
+    // 3. Parsear fechas
+    const start = new Date(start_date);
+    const end = new Date(end_date);
+
+    if (isNaN(start.getTime()) || isNaN(end.getTime())) {
+      return res.status(400).json({
+        message: 'Formato de fecha inválido'
+      });
+    }
+
+    // 4. Estados que afectan disponibilidad
+    const statuses = ['pending_return', 'with_issues'];
+
+    // 5. Consultar productos con disponibilidad
+    const productsWithAvailability = await Product.scope({
+      method: ['withAvailability', start, end, statuses]
+    }).findAll({
+      where: { id: productIds },
+      raw: true
+    }) as unknown as ProductWithAvailability[];;
+
+    // 6. Crear un mapa para fusionar con los productos originales
+    const availabilityMap = new Map(
+      productsWithAvailability.map(p => [p.id, p.available_quantity])
+    );
+
+    // 7. Retornar los productos originales con `available_quantity` actualizado
+    const updatedProducts = products.map(product => ({
+      ...product,
+      available_quantity: availabilityMap.get(product.id) || 0
+    }));
+
+    res.status(200).json({
+      message: 'Disponibilidad recalculada exitosamente',
+      products: updatedProducts
+    });
+
+  } catch (error) {
+    console.error('Error en recalculateProductAvailability:', error);
     next(error);
   }
 };

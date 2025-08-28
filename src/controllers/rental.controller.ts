@@ -1,23 +1,16 @@
 import { RequestHandler, Request } from 'express';
 import { Rental, Product, RentalProduct, User } from '../models';
 import moment from 'moment';
-import PDFDocument, { end } from 'pdfkit';
+import PDFDocument from 'pdfkit';
 import Client from '../models/client.model';
-import { Op, Transaction, fn, col, literal } from 'sequelize';
+import { Transaction } from 'sequelize';
 import sequelize from '../config/db.config';
 import { getOrCreateClientId } from './client.controller';
 import { getPagination } from '../helpers/pagination';
+import { ProductWithAvailability, ProductWithRental } from './product.controller';
 
 interface AuthRequest extends Request {
   user?: any;
-}
-
-export interface ProductWithRental extends Product {
-  available_quantity: number;
-  rental_product: {
-    quantity_rented: number;
-    quantity_returned: number;
-  };
 }
 
 export interface RentalWithProducts extends Rental {
@@ -29,10 +22,6 @@ export interface RentalWithProducts extends Rental {
   }>;
   client: Client;
   creator: User;
-}
-
-interface ProductWithAvailability extends Product {
-  available_quantity: number;
 }
 
 // Crear un nuevo alquiler
