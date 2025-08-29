@@ -1,0 +1,74 @@
+<div class="p-6 bg-[#fff] border-2 border-[#E9EAE8] rounded-lg table-container">
+  <div class="overflow-x-auto rounded-lg shadow-sm border border-gray-200 bg-white">
+    <table class="w-full text-sm text-left text-gray-600">
+      <!-- Table Header -->
+      <thead class="text-gray-500 text-xs uppercase bg-gray-50">
+        <tr>
+          <th *ngFor="let col of columns" class="px-4 py-3">
+            {{ col.label }}
+          </th>
+        </tr>
+      </thead>
+
+      <!-- Table Body -->
+      <tbody class="divide-y divide-gray-100">
+        <!-- Loading State: Skeleton -->
+        <ng-container *ngIf="loading">
+          <tr class="animate-pulse skeleton-row" *ngFor="let _ of Array(5).fill(0)">
+            <td *ngFor="let col of columns" class="px-4 py-3">
+              <div class="h-4 bg-gray-200 rounded skeleton-cell"></div>
+            </td>
+          </tr>
+        </ng-container>
+
+        <!-- Data State: Actual Data -->
+        <ng-container *ngIf="!loading">
+          <tr *ngFor="let row of data" class="hover:bg-gray-50">
+            <td *ngFor="let col of columns" class="px-4 py-3 font-medium text-gray-700">
+              <!-- Dynamic rendering based on column type -->
+              <ng-container [ngSwitch]="col.type">
+                <!-- Text -->
+                <span *ngSwitchCase="'text'">{{ getNestedValue(row, col.key) || '-' }}</span>
+
+                <!-- Date -->
+                <span *ngSwitchCase="'date'">{{ (getNestedValue(row, col.key) | date:'dd/MM/yyyy') || '-' }}</span>
+
+                <!-- Currency -->
+                <span *ngSwitchCase="'currency'">{{ (getNestedValue(row, col.key) | currency:'EUR':'symbol':'1.2-2':'es') || '-' }}</span>
+
+                <!-- Rental Status with chip -->
+                <span *ngSwitchCase="'rentalStatus'" 
+                      class="px-3 py-1 rounded-full text-xs font-medium" 
+                      [ngClass]="getStatusClasses(getNestedValue(row, col.key))">
+                  {{ getNestedValue(row, col.key) | statusRentals }}
+                </span>
+
+                <!-- Actions -->
+                <div *ngSwitchCase="'action'" class="flex gap-2">
+                  <button *ngFor="let act of col.actions"
+                          class="cursor-pointer p-1 rounded hover:bg-gray-100 transition-colors duration-200"
+                          [disabled]="act.disabled ? act.disabled(row) : false"
+                          (click)="onActionClick(act, row)"
+                          [matTooltip]="act.tooltip || ''"
+                          matTooltipPosition="above">
+                    <mat-icon class="icon" [svgIcon]="act.icon"></mat-icon>
+                  </button>
+                </div>
+
+                <!-- Default -->
+                <span *ngSwitchDefault>{{ getNestedValue(row, col.key) || '-' }}</span>
+              </ng-container>
+            </td>
+          </tr>
+
+          <!-- Empty State -->
+          <tr *ngIf="data.length === 0">
+            <td [attr.colspan]="columns.length" class="px-4 py-8 text-center text-gray-500">
+              No hay datos disponibles
+            </td>
+          </tr>
+        </ng-container>
+      </tbody>
+    </table>
+  </div>
+</div>
