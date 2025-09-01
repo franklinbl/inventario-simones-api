@@ -1,5 +1,6 @@
 import express from 'express';
 import cors from 'cors';
+import cookieParser from 'cookie-parser';
 import authRoutes from './routes/auth.routes';
 import inventoryRoutes from './routes/product.routes';
 import rentalRoutes from './routes/rental.routes';
@@ -10,11 +11,15 @@ import { authenticateToken } from './middleware/auth.middleware';
 // Crear la aplicación Express
 const app = express();
 
+app.use(cookieParser());
+app.use(express.json()); // Parsea JSON en las solicitudes
+
 // Middlewares
 app.use(cors({
-  exposedHeaders: ['Content-Disposition']
+  exposedHeaders: ['Content-Disposition'],
+  origin: true,
+  credentials: true
 })); // Habilita CORS
-app.use(express.json()); // Parsea JSON en las solicitudes
 
 // Rutas
 app.use('/api/auth', authRoutes);

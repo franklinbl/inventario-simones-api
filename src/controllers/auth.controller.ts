@@ -1,7 +1,7 @@
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { User, Role } from '../models';
-import { Request, Response, NextFunction, RequestHandler } from 'express';
+import { RequestHandler } from 'express';
 import { JWT_SECRET } from '../config/db.config';
 import { getPagination } from '../helpers/pagination';
 
@@ -70,11 +70,24 @@ export const login: RequestHandler = async (req, res, next) => {
       return;
     }
 
-    // Generar token JWT
-    const token = jwt.sign({ id: user.id }, JWT_SECRET!, { expiresIn: '8h' });
+    // Generar Access token (vida corta)
+    const accessToken = jwt.sign({ id: user.id }, JWT_SECRET!, { expiresIn: '1m' });
 
+    // GGenerar Refresh token (vida larga)
+    const refreshTokenValue = jwt.sign({ id: user.id }, JWT_SECRET!, { expiresIn: '7d' });
+    const timeRefreshToken = 7 * 24 * 60 * 60 * 1000; // 7 días
+
+    // Guardar refresh en cookie (no en BD)
+    res.cookie('refreshToken', refreshTokenValue, {
+      httpOnly: true,
+      secure: true,       // true en producción con HTTPS
+      sameSite: 'none',   // necesario si front y back están en dominios distintos
+      maxAge: timeRefreshToken
+    });
+
+    // Responder con accessToken y datos de usuario
     res.json({
-      token,
+      accessToken,
       user: {
         id: user.id,
         name: user.name,
@@ -85,6 +98,34 @@ export const login: RequestHandler = async (req, res, next) => {
   } catch (error) {
     next(error);
   }
+};
+
+export const refreshToken: RequestHandler = async (req, res) => {
+  const token = req.cookies.refreshToken;
+  if (!token) {
+    res.status(401).json({ message: 'No refresh token' });
+    return
+  }
+
+  try {
+    const payload = jwt.verify(token, JWT_SECRET!) as any;
+    const newAccessToken = jwt.sign({ id: payload.id }, JWT_SECRET!, { expiresIn: '15m' });
+
+    res.json({ accessToken: newAccessToken });
+  } catch (err) {
+    res.status(403).json({ message: 'Invalid or expired refresh token' });
+    return
+  }
+};
+
+export const logout: RequestHandler = (req, res) => {
+  res.clearCookie('refreshToken', {
+    httpOnly: true,
+    secure: true,
+    sameSite: 'none'
+  });
+
+  res.json({ message: 'Logout exitoso' });
 };
 
 // Obtener todos los roles
