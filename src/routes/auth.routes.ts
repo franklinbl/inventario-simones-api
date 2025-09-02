@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { login, register, getRoles, getUsers, refreshToken, logout } from '../controllers/auth.controller';
+import { login, register, getRoles, getUsers, refreshToken, logout, resetPassword } from '../controllers/auth.controller';
 import { authenticateToken, checkRole } from '../middleware/auth.middleware';
 
 const router = Router();
@@ -8,10 +8,11 @@ const router = Router();
 router.post('/login', login);
 router.post('/refreshToken', refreshToken);
 router.post('/logout', logout);
-router.get('/roles', getRoles);
 
 // Rutas protegidas
 router.post('/register', authenticateToken, checkRole(['Administrador']), register);
+router.post('/resetPassword', authenticateToken, checkRole(['Administrador']), resetPassword);
+router.get('/roles', authenticateToken, getRoles);
 router.get('/users',authenticateToken, checkRole(['Administrador']), getUsers);
 
 export default router;

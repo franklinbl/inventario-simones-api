@@ -8,7 +8,7 @@ import { getPagination } from '../helpers/pagination';
 // Registrar un nuevo usuario (solo administradores)
 export const register: RequestHandler = async (req, res, next): Promise<void> => {
   try {
-    const { name, username, password, role_id } = req.body;
+    const { name, username, role_id } = req.body;
 
     // Verificar si el usuario ya existe
     const existingUser = await User.findOne({ where: { username } });
@@ -24,14 +24,11 @@ export const register: RequestHandler = async (req, res, next): Promise<void> =>
       return;
     }
 
-    // Encriptar la contraseña
-    const hashedPassword = await bcrypt.hash(password, 10);
-
-    // Crear el usuario
+    // Crear el usuario con password en null
     const newUser = await User.create({
       name,
       username,
-      password: hashedPassword,
+      password: undefined as unknown as string,
       role_id,
     });
 
@@ -50,7 +47,8 @@ export const register: RequestHandler = async (req, res, next): Promise<void> =>
 // Iniciar sesión
 export const login: RequestHandler = async (req, res, next) => {
   try {
-    const { username, password } = req.body;
+    const message = 'Credenciales inválidas';
+    const { username, password, confirmPassword } = req.body;
 
     // Buscar al usuario con su rol
     const user = await User.findOne({
@@ -59,25 +57,36 @@ export const login: RequestHandler = async (req, res, next) => {
     });
 
     if (!user) {
-      res.status(400).json({ message: 'Credenciales inválidas' });
+      res.status(400).json({ message });
       return;
     }
 
-    // Verificar la contraseña
-    const isMatch = await bcrypt.compare(password, user.password);
-    if (!isMatch) {
-      res.status(400).json({ message: 'Credenciales inválidas' });
-      return;
+    // Caso 1: el usuario aún no tiene contraseña asignada
+    if (!user.password) {
+      if (password !== confirmPassword) {
+        res.status(400).json({ message });
+        return;
+      }
+      const hashedPassword = await bcrypt.hash(password, 10);
+      user.password = hashedPassword;
+      await user.save(); // guardamos la nueva contraseña
+    } else {
+      // Caso 2: validar contraseña existente
+      const isMatch = await bcrypt.compare(password, user.password);
+      if (!isMatch) {
+        res.status(400).json({ message });
+        return;
+      }
     }
 
     // Generar Access token (vida corta)
     const accessToken = jwt.sign({ id: user.id }, JWT_SECRET!, { expiresIn: '1m' });
 
-    // GGenerar Refresh token (vida larga)
+    // Generar Refresh token (vida larga)
     const refreshTokenValue = jwt.sign({ id: user.id }, JWT_SECRET!, { expiresIn: '7d' });
     const timeRefreshToken = 7 * 24 * 60 * 60 * 1000; // 7 días
 
-    // Guardar refresh en cookie (no en BD)
+    // Guardar refresh en cookie
     res.cookie('refreshToken', refreshTokenValue, {
       httpOnly: true,
       secure: true,       // true en producción con HTTPS
@@ -168,6 +177,28 @@ export const getUsers: RequestHandler = async (req, res, next) => {
         hasPreviousPage: page > 1,
       },
     });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Resetear clave del usuario
+export const resetPassword: RequestHandler = async (req, res, next) => {
+  try {
+    const { id } = req.body;
+
+    // Buscar usuario
+    const user = await User.findByPk(id);
+    if (!user) {
+      res.status(404).json({ message: 'Usuario no encontrado' });
+      return;
+    }
+
+    // Asignar password = null
+    user.password = undefined as unknown as string;
+    await user.save();
+
+    res.json({ message: 'Contraseña restablecida' });
   } catch (error) {
     next(error);
   }

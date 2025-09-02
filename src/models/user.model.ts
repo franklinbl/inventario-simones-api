@@ -43,7 +43,8 @@ User.init(
     },
     password: {
       type: DataTypes.STRING,
-      allowNull: false,
+      allowNull: true,
+      defaultValue: null
     },
     role_id: {
       type: DataTypes.INTEGER,
