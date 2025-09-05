@@ -195,8 +195,9 @@ export const resetPassword: RequestHandler = async (req, res, next) => {
     }
 
     // Asignar password = null
-    user.password = undefined as unknown as string;
+    user.password = null as unknown as string;
     await user.save();
+    console.log(user);
 
     res.json({ message: 'Contraseña restablecida' });
   } catch (error) {
