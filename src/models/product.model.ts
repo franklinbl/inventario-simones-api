@@ -3,7 +3,7 @@ import sequelize from '../config/db.config';
 import RentalProduct from './rental-product.model';
 import Rental from './rental.model';
 
-interface ProductAttributes {
+export interface ProductAttributes {
   id: number;
   code: string;
   name: string;

@@ -8,6 +8,13 @@ import sequelize from '../config/db.config';
 import { getOrCreateClientId } from './client.controller';
 import { getPagination } from '../helpers/pagination';
 import { ProductWithAvailability, ProductWithRental } from './product.controller';
+import { getRentalDataForPDF, transformRentalToPDFData } from '../service/pdf.service';
+import { drawClientSection } from '../utils/pdf-templates/draw-client';
+import { drawHeader } from '../utils/pdf-templates/draw-header';
+import { drawProductsTable } from '../utils/pdf-templates/draw-products';
+import { drawFooter } from '../utils/pdf-templates/draw-footer';
+import { createLayout } from '../utils/pdf-layout';
+import { Cursor } from '../utils/pdf-layout';
 
 interface AuthRequest extends Request {
   user?: any;
@@ -484,146 +491,37 @@ export const generateRentalPDF: RequestHandler = async (req, res, next) => {
     const { id } = req.params;
     const rentalId = Number(id);
 
-    // Buscar el alquiler con sus productos y creador
-    const rental = await Rental.findByPk(rentalId, {
-      include: [
-        {
-          model: Product,
-          as: 'products',
-          through: { attributes: ['quantity_rented', 'quantity_returned'], as: 'rental_product' },
-        },
-        {
-          model: User,
-          as: 'creator',
-          attributes: ['id', 'name', 'username'],
-        },
-      ],
-    });
-
+    // Obtener datos del alquiler
+    const rental = await getRentalDataForPDF(rentalId);
     if (!rental) {
       res.status(404).json({ message: 'Alquiler no encontrado' });
       return;
     }
 
-    // Transformar los datos para incluir el nombre del creador
-    const rentalData = rental.toJSON() as any;
-    if (rentalData.creator) {
-      rentalData.created_by = rentalData.creator.name;
-    }
+    // Transformar datos para el PDF
+    const pdfData = transformRentalToPDFData(rental);
 
     // Crear el documento PDF
-    const doc = new PDFDocument();
-
-    // Configurar headers de respuesta
+    const doc = new PDFDocument({ size: 'A4', margin: 0 });
     res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader(
-      'Content-Disposition',
-      `attachment; filename=alquiler-${rentalData.client_name}-${moment(rentalData.start_date).format('DD-MM-YYYY')}.pdf`
-    );
-
-    // Pipe el PDF directamente a la respuesta
+    res.setHeader('Content-Disposition', `inline; filename=alquiler-${rentalId}.pdf`);
     doc.pipe(res);
 
-    // Configurar el documento
-    doc.fontSize(20).text('Detalles del Alquiler', { align: 'center' });
-    doc.moveDown();
+    // Configurar layout y cursor
+    const layout = createLayout(doc.page.width);
+    const cursor = new Cursor(layout.margin); // Empieza en el margen superior
 
-    // Información del cliente
-    doc.fontSize(12).text('Información del Cliente:', { underline: true });
-    doc.fontSize(10).text(`Nombre: ${rentalData.client_name}`);
-    doc.fontSize(10).text(`Teléfono: ${rentalData.client_phone}`);
-    doc.text(`Fecha de inicio: ${moment(rentalData.start_date).format('DD/MM/YYYY')}`);
-    doc.text(`Fecha de fin: ${moment(rentalData.end_date).format('DD/MM/YYYY')}`);
-    doc.text(`Estado: ${rentalData.status}`);
-    doc.text(`Creado por: ${rentalData.created_by}`);
-    doc.moveDown();
+    // Dibujar secciones
+    drawHeader(doc, pdfData, layout, cursor);
+    drawClientSection(doc, pdfData, layout, cursor);
+    drawProductsTable(doc, pdfData, layout, cursor);
+    drawFooter(doc, pdfData, layout, cursor);
 
-    // Tabla de productos
-    doc.fontSize(12).text('Productos Alquilados:', { underline: true });
-    doc.moveDown();
-
-    // Encabezados de la tabla
-    const startX = 50;
-    let currentY = doc.y;
-
-    doc.fontSize(10);
-    doc.text('Producto', startX, currentY);
-    doc.text('Cantidad', startX + 200, currentY);
-    doc.text('Precio Unitario', startX + 300, currentY);
-    doc.text('Subtotal', startX + 400, currentY);
-    doc.moveDown();
-
-    // Línea separadora
-    currentY = doc.y;
-    doc.moveTo(startX, currentY)
-       .lineTo(startX + 500, currentY)
-       .stroke();
-    doc.moveDown();
-
-    // Datos de productos
-    let total = 0;
-    if (!rentalData.products || rentalData.products.length === 0) {
-      doc.text('No hay productos en este alquiler', startX, doc.y);
-      doc.moveDown();
-    } else {
-      for (const product of rentalData.products) {
-        currentY = doc.y;
-        const quantity = (product as any).rental_product.quantity_rented;
-        const price = (product as any).price;
-        const subtotal = quantity * price;
-
-        doc.text(product.name, startX, currentY);
-        doc.text(quantity.toString(), startX + 200, currentY);
-        doc.text(price, startX + 300, currentY);
-        doc.text(`$${subtotal.toFixed(2)}`, startX + 400, currentY);
-        doc.moveDown();
-
-        total += subtotal;
-      }
-    }
-
-    // Línea separadora final
-    currentY = doc.y;
-    doc.moveTo(startX, currentY)
-       .lineTo(startX + 500, currentY)
-       .stroke();
-    doc.moveDown();
-
-    // Aplicar descuento si existe
-    let finalTotal = total;
-    if (rentalData.discount && Number(rentalData.discount) > 0) {
-      const discountPercentage = Number(rentalData.discount);
-      const discountAmount = total * (discountPercentage / 100);
-      finalTotal = total - discountAmount;
-
-      doc.moveDown();
-      doc.fontSize(12).text('Descuento:', { underline: true });
-      doc.fontSize(10).text(`Porcentaje de descuento: ${discountPercentage}%`);
-      doc.text(`Monto de descuento: $${discountAmount.toFixed(2)}`);
-      doc.text(`Subtotal con descuento: $${finalTotal.toFixed(2)}`);
-      doc.moveDown();
-    }
-
-    // Total sin flete
-    doc.fontSize(12).text(`Total: $${finalTotal.toFixed(2)}`, startX + 300, doc.y);
-
-    // Información de entrega
-    if (rentalData.is_delivery_by_us && rentalData.delivery_price && Number(rentalData.delivery_price) > 0) {
-      const deliveryPrice = Number(rentalData.delivery_price);
-      doc.moveDown();
-      doc.fontSize(12).text('Información de Entrega:', { underline: true });
-      doc.fontSize(10).text(`Entrega a cargo de la empresa: Sí`);
-      doc.text(`Costo de flete: $${deliveryPrice.toFixed(2)}`);
-      doc.moveDown();
-
-      // Total final con flete
-      const totalWithDelivery = finalTotal + deliveryPrice;
-      doc.fontSize(14).text(`Total final: $${totalWithDelivery.toFixed(2)}`, startX + 300, doc.y);
-    }
-
-    // Finalizar el PDF
+    // Finalizar PDF
     doc.end();
+
   } catch (error) {
+    console.error('Error al generar PDF:', error);
     next(error);
   }
 };

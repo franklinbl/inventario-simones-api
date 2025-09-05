@@ -1,7 +1,7 @@
 import { DataTypes, Model, Optional } from 'sequelize';
 import sequelize from '../config/db.config';
 
-interface RentalProductAttributes {
+export interface RentalProductAttributes {
   id: number;
   rental_id: number;
   product_id: number;
