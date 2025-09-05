@@ -35,15 +35,14 @@ const initAdmin = async () => {
     });
 
     if (!existingAdmin) {
-      if (!process.env.ADMIN_USERNAME || !process.env.ADMIN_PASSWORD) {
-        throw new Error('ADMIN_USERNAME y ADMIN_PASSWORD deben estar definidos en el archivo .env');
+      if (!process.env.ADMIN_USERNAME) {
+        throw new Error('ADMIN_USERNAME deben estar definidos en el archivo .env');
       }
 
-      const hashedPassword = await bcrypt.hash(process.env.ADMIN_PASSWORD, 10);
       await User.create({
         name: process.env.ADMIN_NAME || 'Default',
         username: process.env.ADMIN_USERNAME,
-        password: hashedPassword,
+        password: null as unknown as string,
         role_id: 1 // ID del rol de administrador
       });
     }
